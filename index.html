@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Praddo Painel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   :root{
@@ -133,6 +134,10 @@
       </div>
       <div class="eye-toggle" id="eye-toggle"><span id="eye-icon">👁</span><span id="eye-label">Ocultar valores</span></div>
     </div>
+    <div style="margin-bottom:16px">
+      <button class="btn-outline" id="btn-exportar-backup">⬇ Exportar backup (.json)</button>
+    </div>
+
 
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-label">Clientes cadastrados</div><div class="kpi-value" id="kpi-clientes">0</div></div>
@@ -786,6 +791,37 @@ let lancamentos = [];
 let custosVariaveis = [];
 let custosFixos = [];
 let fretePadrao = 2.00;
+
+// ===== CONEXÃO COM SUPABASE =====
+const SUPABASE_URL = 'https://fulggjkqpxuyvooqunyb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_85UlbzC-1aMpaLjGpE-39A_4nCG7O-a';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+window.storage = {
+  async get(key){
+    const { data, error } = await sbClient.from('app_data').select('value').eq('key', key).maybeSingle();
+    if(error){ showToastSafe('Erro ao carregar dados: '+error.message); throw error; }
+    if(!data) return null;
+    return { key, value: JSON.stringify(data.value), shared: false };
+  },
+  async set(key, valueString){
+    let parsed;
+    try{ parsed = JSON.parse(valueString); }catch(e){ parsed = valueString; }
+    const { error } = await sbClient.from('app_data').upsert({ key, value: parsed, updated_at: new Date().toISOString() });
+    if(error){ showToastSafe('Erro ao salvar dados: '+error.message); throw error; }
+    return { key, value: valueString, shared: false };
+  },
+  async delete(key){
+    const { error } = await sbClient.from('app_data').delete().eq('key', key);
+    if(error) throw error;
+    return { key, deleted: true, shared: false };
+  }
+};
+
+function showToastSafe(msg){
+  try{ showToast(msg); }catch(e){ console.error(msg); }
+}
+
 let taxasPagamento = [];
 let pecas = [];
 let fornecedores = [];
@@ -3363,6 +3399,33 @@ document.getElementById('btn-add').addEventListener('click', ()=>{
   document.getElementById('f-descricao').value='';
   document.getElementById('f-entrada').value='';
   document.getElementById('f-saida').value='';
+});
+
+document.getElementById('btn-exportar-backup')?.addEventListener('click', async ()=>{
+  const chaves = [
+    'fluxo_caixa_lancamentos','custos_loja_variaveis','custos_loja_fixos','custos_loja_taxas',
+    'pecas_modelos','fornecedores_cadastro','fechamentos_caixa','crm_clientes',
+    'contas_pagar','contas_receber','mei_config','mei_taxas_avulsas',
+    'contas_bancarias','reserva_emergencia','embaixadoras_cadastro'
+  ];
+  const backup = {};
+  for(const chave of chaves){
+    try{
+      const r = await window.storage.get(chave);
+      backup[chave] = r ? JSON.parse(r.value) : null;
+    }catch(e){
+      backup[chave] = null;
+    }
+  }
+  backup._exportadoEm = new Date().toISOString();
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'backup-praddo-painel-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup baixado');
 });
 
 document.getElementById('eye-toggle').addEventListener('click', ()=>{

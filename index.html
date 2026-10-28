@@ -470,6 +470,8 @@
             <option value="Colares">Colares</option>
             <option value="Pulseiras">Pulseiras</option>
             <option value="Piercing">Piercing</option>
+            <option value="Conjuntos">Conjuntos</option>
+            <option value="Outros">Outros</option>
           </select>
         </div>
         <div class="field" style="display:flex;align-items:center;gap:6px;padding-bottom:8px">
@@ -1005,45 +1007,61 @@ let embaixadoras = [];
 let valoresOcultos = false;
 let chartFluxo = null;
 
-const SIGLAS_CATEGORIA = {'Anéis':'ANE','Brincos':'BRI','Berloques':'BER','Colares':'COL','Pulseiras':'PUL','Piercing':'PIE'};
-const SUBSTANTIVOS_CATEGORIA = ['anel','aneis','brinco','brincos','colar','colares','pulseira','pulseiras','berloque','berloques','piercing'];
-const PALAVRAS_PARADA = ['infantil','em','com','sem','para','pra','chapa','batido','folheado','banhado', ...SUBSTANTIVOS_CATEGORIA];
-const PREFIXOS_PARADA = ['prata','ouro','zirconia'];
+const SIGLAS_CATEGORIA = {'Anéis':'ANE','Brincos':'BRI','Berloques':'BER','Colares':'COL','Pulseiras':'PUL','Piercing':'PIE','Conjuntos':'CONJ','Outros':'OUT'};
+const TERMOS_CATEGORIA_SKU = ['anel','aneis','brinco','brincos','berloque','berloques','colar','colares','pulseira','pulseiras','piercing','piercings','conjunto','conjuntos','pingente','pingentes','corrente','correntes','choker','chokers','escapulario','escapularios','relicario','relicarios','tornozeleira','tornozeleiras','bracelete','braceletes','duo','trio'];
+const PALAVRAS_PARADA = ['infantil','em','com','sem','para','pra','chapa','batido','folheado','folheada','folheados','banhado','banhada','banhados','banho','prata','ouro','zirconia','zirconias'];
+const PREFIXOS_PARADA = ['prata','ouro','zirconia','zirconias'];
 const CONECTORES = ['de','da','do','das','dos','e'];
 
 function removerAcentos(s){
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
 
 function ehPalavraDeParada(p){
-  return PALAVRAS_PARADA.includes(p) || PREFIXOS_PARADA.some(pref=> p.startsWith(pref)) || /^\d/.test(p);
+  const normalizada = removerAcentos(p).toLowerCase();
+  return PALAVRAS_PARADA.includes(normalizada) || PREFIXOS_PARADA.some(pref=> normalizada.startsWith(pref)) || /^\d/.test(normalizada);
 }
 
 function extrairPalavraModelo(nome){
-  const palavras = removerAcentos(nome).toLowerCase().split(/\s+/).filter(Boolean);
-  let partes = [];
-  let comecou = false;
-  for(const p of palavras){
-    if(!comecou){
-      if(ehPalavraDeParada(p) || CONECTORES.includes(p)) continue;
-      comecou = true;
-      partes.push(p);
-      continue;
-    }
-    if(ehPalavraDeParada(p)) break;
-    if(CONECTORES.includes(p)) continue;
-    partes.push(p);
+  const palavras = String(nome ?? '').normalize('NFC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const partes = [];
+  for(const palavra of palavras){
+    const pBusca = removerAcentos(palavra).toLowerCase();
+    if(TERMOS_CATEGORIA_SKU.includes(pBusca)) continue;
+    if(pBusca === 'infantil' || CONECTORES.includes(pBusca)) continue;
+    if(ehPalavraDeParada(pBusca)) break;
+    partes.push(palavra);
   }
-  const resultado = partes.join('').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  let resultado = partes.join('').toUpperCase().replace(/[^A-Z0-9À-ÖØ-Þ]/g,'');
+  if(removerAcentos(resultado).toUpperCase() === 'LIRIO') resultado = 'LIRIO';
+  if(removerAcentos(resultado).toUpperCase() === 'GOTAGALERIAVERDETIFFANY') resultado = 'GOTAGALVERTIFF';
   return resultado || 'MODELO';
 }
 
 function gerarSKU(nome, categoria, infantil){
-  const sigla = SIGLAS_CATEGORIA[categoria] || 'PEC';
+  const sigla = SIGLAS_CATEGORIA[categoria] || 'OUT';
+  const infijo = infantil ? 'INF-' : '';
   const modeloKw = extrairPalavraModelo(nome);
-  const mesmosGrupo = pecas.filter(p=> p.categoria===categoria && !!p.infantil===!!infantil);
-  const numero = String(mesmosGrupo.length + 1).padStart(3,'0');
-  return sigla + (infantil ? '-INF' : '') + '-' + modeloKw + '-' + numero;
+  const prefixoGrupo = '^' + sigla + '-' + (infantil ? 'INF-' : '(?!INF-)') + '.*-([0-9]{3,})$';
+  const regexGrupo = new RegExp(prefixoGrupo);
+  let maiorNumero = 0;
+  pecas.forEach(p=>{
+    const skuAtual = String(p.sku || '').trim();
+    const match = skuAtual.match(regexGrupo);
+    if(match) maiorNumero = Math.max(maiorNumero, Number(match[1]) || 0);
+  });
+  let numero = maiorNumero + 1;
+  let sku = '';
+  do {
+    const sequencia = String(numero).padStart(3,'0');
+    sku = sigla + '-' + infijo + modeloKw + '-' + sequencia;
+    numero++;
+  } while(pecas.some(p=>String(p.sku || '').trim().toUpperCase() === sku.toUpperCase()));
+  return sku;
 }
 
 function fmtMoeda(v){
@@ -2037,7 +2055,7 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
       precoPraticado,
       compras: []
     });
-    showToast('Modelo '+sku+' cadastrado');
+    showToast('Modelo '+sku+' cadastrado. Use este mesmo SKU ao cadastrar o produto na Nuvemshop.');
   }
 
   salvarPecas();

@@ -2250,8 +2250,12 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
   document.getElementById('pc-praticado').value='';
   document.getElementById('pc-tamanho').value='';
   document.getElementById('pc-infantil').checked=false;
-  document.querySelectorAll('.pc-embal-check').forEach(c=> c.checked=false);
-  document.querySelectorAll('.pc-taxa-check').forEach(c=> c.checked=false);
+  document.querySelectorAll('.pc-embal-check').forEach(chk=>{
+    chk.checked = true;
+    const qtd = chk.closest('div').querySelector('.pc-embal-qtd');
+    if(qtd){ qtd.disabled = false; qtd.value = '1'; }
+  });
+  document.querySelectorAll('.pc-taxa-check').forEach(chk=> chk.checked=true);
   atualizarDisplayFretePadrao();
   atualizarPreviewPeca();
 });

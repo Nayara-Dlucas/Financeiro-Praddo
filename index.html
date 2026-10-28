@@ -2611,7 +2611,7 @@ function renderPecas(){
     const precoPraticado = p.precoPraticado || r.precoSugerido || 0;
     const lucro = precoPraticado - r.custoTotal - precoPraticado*((p.taxasPercentual||0)/100);
     const margemReal = precoPraticado>0 ? (lucro/precoPraticado*100) : 0;
-    const markupPraticado = r.custoTotal>0 ? ((precoPraticado - r.custoTotal)/r.custoTotal*100) : 0;
+    const markupPraticado = (Number(p.custoProduto)||0)>0 ? (lucro/(Number(p.custoProduto)||1)*100) : 0;
     const comprasTotal = (p.compras||[]).length;
 
     return '<div class="card">'
@@ -2636,12 +2636,14 @@ function renderPecas(){
       +'</div>'
       +'<button class="btn-outline" onclick="abrirSeletorPosicao('+p.id+')" style="margin-bottom:12px">🏷 Imprimir etiqueta</button>'
       +'<div class="peca-kpi-grid">'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custo total</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotal)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custos antes das taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotal)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Taxas estimadas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.taxasValor)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custo total com taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotalComTaxas)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço sugerido</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.precoSugerido)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço praticado</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(precoPraticado)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro líquido</div><div style="font-size:15px;font-weight:600" class="'+(lucro>=0?'positivo':'negativo')+'">'+fmtMoeda(lucro)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Margem real</div><div style="font-size:15px;font-weight:600">'+margemReal.toFixed(1)+'%</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Markup praticado</div><div style="font-size:15px;font-weight:600">'+markupPraticado.toFixed(1)+'%</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro sobre custo da joia</div><div style="font-size:15px;font-weight:600">'+markupPraticado.toFixed(1)+'%</div></div>'
       +'</div>'
       +'<button class="btn-outline" onclick="toggleCompras('+p.id+')" id="btn-compras-'+p.id+'">Ver compras ('+comprasTotal+')</button>'
       +'<div id="compras-'+p.id+'" style="display:none;margin-top:14px">'

@@ -836,6 +836,20 @@
     </div>
   </div>
 </div>
+<div class="modal-overlay" id="modal-editar-nuvemshop" onclick="if(event.target===this)fecharEdicaoProdutoNuvemshop()">
+  <div class="modal-box" style="max-width:620px;max-height:90vh;overflow:auto">
+    <h3 style="font-size:17px;font-weight:600;margin-bottom:8px">Editar produto do catálogo</h3>
+    <p style="margin-bottom:14px">Altere o nome e os códigos de identificação usados neste painel financeiro.</p>
+    <div id="edit-nuvemshop-fields"></div>
+    <div style="font-size:12px;line-height:1.6;color:var(--texto-sec);background:var(--bege);border-radius:8px;padding:10px;margin:14px 0">
+      <strong>Atenção:</strong> as alterações são salvas somente neste painel. Elas não modificam automaticamente o cadastro ou os SKUs na loja Nuvemshop.
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-outline" onclick="fecharEdicaoProdutoNuvemshop()">Cancelar</button>
+      <button type="button" class="btn" onclick="salvarEdicaoProdutoNuvemshop()">Salvar alterações</button>
+    </div>
+  </div>
+</div>
 <datalist id="lista-fornecedores-nomes"></datalist>
 <datalist id="lista-clientes-nomes"></datalist>
 </div><!-- /#app-shell -->
@@ -2149,7 +2163,7 @@ function renderProdutoNuvemshop(p){
       +'</div>'
       +'<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'
         +'<div style="text-align:right"><div style="font-size:15px;font-weight:600;color:var(--oliva-escuro)">'+escaparHtml(precoPrincipal)+'</div>'+faixas+'</div>'
-        +'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
+        +'<button type="button" class="btn-outline" style="padding:5px 9px;font-size:11px;white-space:nowrap" onclick="event.stopPropagation();editarProdutoNuvemshop('+p.id+')" aria-label="Editar produto">✎ Editar</button>'+'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
       +'</div>'
     +'</div>'
     +'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">'+categoryTags+'<span class="tag">'+escaparHtml(visibilidade)+'</span><span class="tag">'+escaparHtml(stockLabel)+'</span></div>'
@@ -2167,6 +2181,69 @@ function renderProdutoNuvemshop(p){
     +'</div>'
   +'</div>';
 }
+
+let produtoNuvemshopEmEdicaoId = null;
+
+window.editarProdutoNuvemshop = function(id){
+  const p = pecas.find(item => String(item.id) === String(id) && item.origem === 'nuvemshop');
+  if(!p){ showToast('Não foi possível localizar esse produto.'); return; }
+  produtoNuvemshopEmEdicaoId = p.id;
+  const variantes = Array.isArray(p.variantesNuvemshop) ? p.variantesNuvemshop : [];
+  const camposVariantes = variantes.length
+    ? '<div style="margin-top:16px"><div style="font-size:13px;font-weight:600;margin-bottom:8px">SKU das variações</div>'
+      + variantes.map((v,i)=>{
+          const propriedade = v.propriedades && Object.keys(v.propriedades).length
+            ? Object.entries(v.propriedades).map(([k,val])=>k+': '+val).join(' • ')
+            : 'Variação '+(i+1);
+          return '<div class="field" style="margin-bottom:10px"><label>'+escaparHtml(propriedade)+'</label><input type="text" id="edit-nuv-sku-var-'+i+'" value="'+escaparHtml(v.sku||'')+'" maxlength="100" placeholder="SKU da variação (opcional)"></div>';
+        }).join('')
+      +'</div>'
+    : '<p style="font-size:12px;color:var(--texto-sec);margin-top:14px">Este produto não possui variações detalhadas no painel.</p>';
+  document.getElementById('edit-nuvemshop-fields').innerHTML =
+    '<div class="field" style="margin-bottom:12px"><label>Nome do produto no painel</label><input type="text" id="edit-nuv-nome" value="'+escaparHtml(p.nome||'')+'" maxlength="200" required></div>'
+    +'<div class="field"><label>SKU de identificação no painel</label><input type="text" id="edit-nuv-sku" value="'+escaparHtml(p.sku||'')+'" maxlength="100" placeholder="Ex.: BR-001"><small style="display:block;color:var(--texto-sec);font-size:11px;margin-top:5px">Esse código aparece no cartão do produto. Deixe em branco para voltar a exibir o código NUV- do produto.</small></div>'
+    +camposVariantes;
+  document.getElementById('modal-editar-nuvemshop').style.display = 'flex';
+  setTimeout(()=>document.getElementById('edit-nuv-nome')?.focus(),50);
+};
+
+window.fecharEdicaoProdutoNuvemshop = function(){
+  const modal = document.getElementById('modal-editar-nuvemshop');
+  if(modal) modal.style.display = 'none';
+  produtoNuvemshopEmEdicaoId = null;
+};
+
+window.salvarEdicaoProdutoNuvemshop = async function(){
+  if(produtoNuvemshopEmEdicaoId === null || produtoNuvemshopEmEdicaoId === undefined) return;
+  const p = pecas.find(item => String(item.id) === String(produtoNuvemshopEmEdicaoId) && item.origem === 'nuvemshop');
+  if(!p){ showToast('Não foi possível localizar esse produto.'); return; }
+  const nome = (document.getElementById('edit-nuv-nome')?.value||'').trim();
+  const sku = (document.getElementById('edit-nuv-sku')?.value||'').trim();
+  if(!nome){ showToast('Informe o nome do produto.'); document.getElementById('edit-nuv-nome')?.focus(); return; }
+  if(sku && pecas.some(item => String(item.id)!==String(p.id) && String(item.sku||'').trim().toLowerCase()===sku.toLowerCase())){
+    showToast('Esse SKU já está sendo usado por outro produto no painel.');
+    document.getElementById('edit-nuv-sku')?.focus();
+    return;
+  }
+  p.nome = nome;
+  if(sku) p.sku = sku;
+  else delete p.sku;
+  if(Array.isArray(p.variantesNuvemshop)){
+    p.variantesNuvemshop = p.variantesNuvemshop.map((v,i)=>({
+      ...v,
+      sku: (document.getElementById('edit-nuv-sku-var-'+i)?.value||'').trim()
+    }));
+  }
+  p.edicaoLocalNuvemshop = new Date().toISOString();
+  try{
+    await window.storage.set('pecas_modelos', JSON.stringify(pecas));
+    fecharEdicaoProdutoNuvemshop();
+    renderPecas();
+    showToast('Produto atualizado no painel financeiro.');
+  }catch(e){
+    showToast('Não foi possível salvar as alterações. Confira sua conexão e tente novamente.');
+  }
+};
 
 function renderPecas(){
   const el = document.getElementById('lista-pecas');

@@ -93,6 +93,7 @@
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--graf);color:var(--bege);padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s}
   .toast.show{opacity:1}
   .peca-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+  .sim-form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   @media (max-width: 900px){
     body{flex-direction:column}
     .sidebar{width:100%;height:auto;position:relative;display:flex;overflow-x:auto;padding:14px}
@@ -102,6 +103,7 @@
     .kpi-grid{grid-template-columns:repeat(2,1fr)}
     .form-grid{grid-template-columns:1fr 1fr}
     .peca-kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .sim-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
 
   /* ===== AUTENTICAÇÃO DO PAINEL ===== */
@@ -444,11 +446,20 @@
       </div>
       <div id="conteudo-sim" style="display:none">
         <div class="page-sub" style="margin-bottom:14px">Testa um preço antes mesmo de comprar. Não gera SKU nem fica salvo.</div>
-        <div class="form-grid" style="grid-template-columns:repeat(4,1fr)">
-          <div class="field"><label>Custo total estimado (R$)</label><input type="text" step="0.01" id="sim-custo" class="money-mask" placeholder="0,00"></div>
-          <div class="field"><label>Margem desejada (%)</label><input type="number" step="1" id="sim-margem" placeholder="45"></div>
-          <div class="field"><label>Comissão (%)</label><input type="number" step="1" id="sim-comissao" placeholder="0"></div>
-          <div class="field"><label>Taxa cartão (%)</label><input type="number" step="1" id="sim-cartao" placeholder="0"></div>
+        <div class="form-grid sim-form-grid">
+          <div class="field"><label>Custo do produto (R$)</label><input type="text" id="sim-custo-produto" class="money-mask" placeholder="0,00"></div>
+          <div class="field"><label>Frete rateado até você (R$)</label><input type="text" id="sim-frete" class="money-mask" placeholder="Valor padrão da loja"></div>
+          <div class="field"><label>Outros custos adicionais (R$)</label><input type="text" id="sim-custos-add" class="money-mask" placeholder="0,00"></div>
+          <div class="field"><label>Outras despesas fixas por peça (R$)</label><input type="text" id="sim-extras" class="money-mask" placeholder="0,00"></div>
+          <div class="field"><label>Acréscimo sobre o custo do produto (%)</label><input type="number" min="0" step="1" id="sim-margem" placeholder="100"></div>
+          <div class="field"><label>Comissão (%)</label><input type="number" min="0" max="99.99" step="0.01" id="sim-comissao" placeholder="0"></div>
+          <div class="field"><label>Taxa de cartão (%)</label><input type="number" min="0" max="99.99" step="0.01" id="sim-cartao" placeholder="0"></div>
+          <div class="field"><label>Outras taxas (%)</label><input type="number" min="0" max="99.99" step="0.01" id="sim-outras-taxas" placeholder="0"></div>
+        </div>
+        <div style="font-size:11px;color:var(--texto-sec);margin:4px 0 12px">Comissão e taxas são preenchidas com os valores cadastrados em Custos da loja → Taxas de pagamento. Você pode ajustá-las apenas para testar este cenário.</div>
+        <div class="field" style="margin:10px 0 14px">
+          <label>Custos variáveis usados nesta peça (embalagens, brindes e insumos)</label>
+          <div id="sim-custos-variaveis-lista" style="border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:13px;max-height:260px;overflow:auto"></div>
         </div>
         <div id="sim-resultado" style="margin-top:10px;font-size:14px"></div>
       </div>
@@ -510,7 +521,10 @@
 
       <div class="card" style="background:var(--fundo);border-style:dashed;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:13px">
-          <div>Custo total: <strong id="pc-preview-custo">R$ 0,00</strong></div>
+          <div>Custos antes das taxas: <strong id="pc-preview-custo">R$ 0,00</strong></div>
+          <div>Taxas estimadas: <strong id="pc-preview-taxas">R$ 0,00</strong></div>
+          <div>Custo total com taxas: <strong id="pc-preview-custo-taxas">R$ 0,00</strong></div>
+          <div>Lucro desejado estimado: <strong id="pc-preview-lucro">R$ 0,00</strong></div>
           <div>Preço sugerido: <strong id="pc-preview-sugerido" style="color:var(--oliva-escuro)">R$ 0,00</strong></div>
         </div>
       </div>
@@ -1389,7 +1403,9 @@ function renderTudo(){
   renderCustosFixos();
   renderTaxas();
   renderEmbalagensCheckbox();
+  renderSimCustosVariaveis();
   renderTaxasCheckbox();
+  atualizarTaxasSimulacao();
   renderPecas();
   renderFornecedores();
   renderFechamentos();
@@ -1409,7 +1425,9 @@ function atualizarDisplayFretePadrao(){
   const campo = document.getElementById('fp-valor');
   if(campo && document.activeElement !== campo) campo.value = fretePadrao;
   const campoPeca = document.getElementById('pc-frete');
-  if(campoPeca && !campoPeca.value && document.activeElement !== campoPeca) campoPeca.value = fretePadrao;
+  if(campoPeca && !campoPeca.value && document.activeElement !== campoPeca) setMoedaValue(campoPeca, fretePadrao);
+  const campoSimFrete = document.getElementById('sim-frete');
+  if(campoSimFrete && !campoSimFrete.value && document.activeElement !== campoSimFrete) setMoedaValue(campoSimFrete, fretePadrao);
 }
 
 function renderResumo(){
@@ -1687,6 +1705,7 @@ function renderCustosVariaveis(){
     tabela.style.display='none';
     empty.style.display='block';
     document.getElementById('cv-total').textContent = fmtMoeda(0);
+    renderSimCustosVariaveis();
     return;
   }
   tabela.style.display='table';
@@ -1706,6 +1725,7 @@ function renderCustosVariaveis(){
       +'</tr>';
   }).join('');
   document.getElementById('cv-total').textContent = fmtMoeda(custosVariaveis.reduce((s,c)=>s+c.valor,0));
+  renderSimCustosVariaveis();
 }
 
 function renderCustosFixos(){
@@ -1753,6 +1773,36 @@ window.excluirCustoFixo = function(id){
 
 // ===== TAXAS DE PAGAMENTO =====
 
+function classificarTaxaParaSimulacao(taxa){
+  const nome = String(taxa?.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(nome.includes('comiss') || nome.includes('embaixador') || nome.includes('afiliad')) return 'comissao';
+  if(['cartao','credito','debito','maquininha','visa','mastercard','elo'].some(termo=>nome.includes(termo))) return 'cartao';
+  return 'outras';
+}
+
+function obterTaxasCadastradasParaSimulacao(){
+  const resultado = {comissao:0, cartao:0, outras:0};
+  taxasPagamento.forEach(taxa=>{
+    const grupo = classificarTaxaParaSimulacao(taxa);
+    resultado[grupo] += Number(taxa.percentual) || 0;
+  });
+  return resultado;
+}
+
+function atualizarTaxasSimulacao(){
+  const taxas = obterTaxasCadastradasParaSimulacao();
+  const campos = [
+    ['sim-comissao', taxas.comissao],
+    ['sim-cartao', taxas.cartao],
+    ['sim-outras-taxas', taxas.outras]
+  ];
+  campos.forEach(([id, valor])=>{
+    const campo = document.getElementById(id);
+    if(campo) campo.value = Number(valor.toFixed(2)).toString();
+  });
+  if(typeof atualizarSimulacao === 'function') atualizarSimulacao();
+}
+
 function renderTaxas(){
   const body = document.getElementById('tabela-tx-body');
   const empty = document.getElementById('tx-empty');
@@ -1761,6 +1811,7 @@ function renderTaxas(){
   if(taxasPagamento.length===0){
     tabela.style.display='none';
     empty.style.display='block';
+    atualizarTaxasSimulacao();
     return;
   }
   tabela.style.display='table';
@@ -1769,6 +1820,7 @@ function renderTaxas(){
     return '<tr><td>'+t.nome+'</td><td>'+t.percentual+'%</td>'
       +'<td><button class="del-btn" onclick="excluirTaxa('+t.id+')" aria-label="Excluir">🗑</button></td></tr>';
   }).join('');
+  atualizarTaxasSimulacao();
 }
 
 window.excluirTaxa = function(id){
@@ -1819,6 +1871,8 @@ function renderTaxasCheckbox(){
 
 window.marcarTodasTaxas = function(valor){
   document.querySelectorAll('.pc-taxa-check').forEach(chk=> chk.checked = valor);
+  const manual = document.getElementById('pc-taxas-manual');
+  if(manual) manual.value = '';
   atualizarPreviewPeca();
 }
 
@@ -1900,6 +1954,65 @@ document.getElementById('btn-save-frete')?.addEventListener('click', ()=>{
 
 // ===== PEÇAS =====
 
+function renderSimCustosVariaveis(){
+  const el = document.getElementById('sim-custos-variaveis-lista');
+  if(!el) return;
+  const anteriores = {};
+  el.querySelectorAll('.sim-custo-check').forEach(chk=>{
+    const item = decodeURIComponent(chk.dataset.item || '');
+    const qtd = Number(chk.closest('div')?.querySelector('.sim-custo-qtd')?.value || 1);
+    anteriores[item] = {checked:chk.checked, qtd:Number.isFinite(qtd) && qtd>0 ? qtd : 1};
+  });
+  const itens = itensUnicosCusto().sort((a,b)=>String(a.item).localeCompare(String(b.item),'pt-BR'));
+  if(itens.length===0){
+    el.innerHTML = '<span style="color:var(--texto-sec)">Nenhum custo variável cadastrado. Cadastre embalagens, brindes ou insumos em Custos da loja para selecioná-los aqui.</span>';
+    atualizarSimulacao();
+    return;
+  }
+  el.innerHTML = '<div style="font-size:11px;color:var(--texto-sec);margin-bottom:6px">Os itens aparecem marcados inicialmente para refletir a embalagem padrão. Desmarque os que não serão usados nesta peça.</div>'
+    +'<div style="margin-bottom:6px"><a href="#" onclick="marcarTodosCustosSimulacao(true);return false;" style="font-size:12px;color:var(--oliva)">Marcar todos</a> · <a href="#" onclick="marcarTodosCustosSimulacao(false);return false;" style="font-size:12px;color:var(--oliva)">Desmarcar todos</a></div>'
+    +itens.map(it=>{
+      const previo = anteriores[it.item];
+      const marcado = previo ? previo.checked : true;
+      const qtd = previo ? previo.qtd : 1;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;flex-wrap:wrap">'
+        +'<input type="checkbox" class="sim-custo-check" data-item="'+encodeURIComponent(it.item)+'" data-unit="'+it.unit+'" style="width:auto"'+(marcado?' checked':'')+'>'
+        +'<span style="flex:1;min-width:150px">'+escaparHtml(it.item)+' <span style="color:var(--texto-sec)">('+fmtMoeda(it.unit)+'/un)</span></span>'
+        +'<label style="font-size:11px;color:var(--texto-sec)">Qtd. <input type="number" min="1" step="1" class="sim-custo-qtd" value="'+qtd+'" style="width:62px;padding:4px 6px;border:1px solid var(--borda);border-radius:6px"'+(!marcado?' disabled':'')+'></label>'
+      +'</div>';
+    }).join('');
+  el.querySelectorAll('.sim-custo-check').forEach(chk=>chk.addEventListener('change',()=>{
+    const qtd=chk.closest('div').querySelector('.sim-custo-qtd');
+    if(qtd) qtd.disabled=!chk.checked;
+    atualizarSimulacao();
+  }));
+  el.querySelectorAll('.sim-custo-qtd').forEach(inp=>inp.addEventListener('input',()=>{
+    if(inp.value !== '' && (!Number.isInteger(Number(inp.value)) || Number(inp.value)<1)) return;
+    atualizarSimulacao();
+  }));
+  atualizarSimulacao();
+}
+
+window.marcarTodosCustosSimulacao = function(valor){
+  document.querySelectorAll('.sim-custo-check').forEach(chk=>{
+    chk.checked=valor;
+    const qtd=chk.closest('div').querySelector('.sim-custo-qtd');
+    if(qtd) qtd.disabled=!valor;
+  });
+  atualizarSimulacao();
+}
+
+function calcularCustosVariaveisSimulacao(){
+  let total=0;
+  document.querySelectorAll('.sim-custo-check').forEach(chk=>{
+    if(!chk.checked) return;
+    const unit=Number(chk.dataset.unit)||0;
+    const qtd=Number(chk.closest('div').querySelector('.sim-custo-qtd')?.value)||1;
+    total+=unit*qtd;
+  });
+  return total;
+}
+
 function itensUnicosCusto(){
   const mapa = {};
   custosVariaveis.forEach(c=>{
@@ -1965,12 +2078,18 @@ function calcularEmbalagensSelecionadas(){
 }
 
 function calcularPrecificacao({custoProduto, custosAdd, frete, extras, margem, taxasPercentual, embalagensTotal}){
-  const custoTotal = (custoProduto||0) + (custosAdd||0) + (frete||0) + (extras||0) + embalagensTotal;
-  const valorMargem = (custoProduto||0) * (margem||0)/100;
+  const custoJoia = Math.max(0, Number(custoProduto) || 0);
+  const custoTotal = custoJoia + (Number(custosAdd)||0) + (Number(frete)||0) + (Number(extras)||0) + (Number(embalagensTotal)||0);
+  // O acréscimo de lucro incide somente sobre o custo da joia, não sobre embalagens ou taxas.
+  const valorMargem = custoJoia * (Math.max(0, Number(margem)||0)/100);
   const subtotal = custoTotal + valorMargem;
-  const divisor = 1 - (taxasPercentual||0)/100;
+  const taxaPercentualSegura = Math.max(0, Number(taxasPercentual)||0);
+  const divisor = 1 - taxaPercentualSegura/100;
   const precoSugerido = divisor > 0 ? subtotal/divisor : 0;
-  return {custoTotal, precoSugerido, valorMargem};
+  const taxasValor = divisor > 0 ? precoSugerido * taxaPercentualSegura/100 : 0;
+  const custoTotalComTaxas = divisor > 0 ? custoTotal + taxasValor : 0;
+  const lucroEstimado = divisor > 0 ? precoSugerido - custoTotal - taxasValor : 0;
+  return {custoTotal, precoSugerido, valorMargem, taxasPercentual:taxaPercentualSegura, taxasValor, custoTotalComTaxas, lucroEstimado, divisor};
 }
 
 function atualizarPreviewPeca(){
@@ -1981,10 +2100,15 @@ function atualizarPreviewPeca(){
   const margem = parseFloat(document.getElementById('pc-margem').value) || 0;
   const taxasPercentual = obterTaxasPecaFormulario();
   const {total: embalagensTotal} = calcularEmbalagensSelecionadas();
-
   const r = calcularPrecificacao({custoProduto, custosAdd, frete, extras, margem, taxasPercentual, embalagensTotal});
   document.getElementById('pc-preview-custo').textContent = fmtMoeda(r.custoTotal);
-  document.getElementById('pc-preview-sugerido').textContent = fmtMoeda(r.precoSugerido);
+  document.getElementById('pc-preview-sugerido').textContent = r.divisor > 0 ? fmtMoeda(r.precoSugerido) : 'Taxas ≥ 100%';
+  const taxaEl = document.getElementById('pc-preview-taxas');
+  const custoTaxasEl = document.getElementById('pc-preview-custo-taxas');
+  const lucroEl = document.getElementById('pc-preview-lucro');
+  if(taxaEl) taxaEl.textContent = fmtMoeda(r.taxasValor);
+  if(custoTaxasEl) custoTaxasEl.textContent = r.divisor > 0 ? fmtMoeda(r.custoTotalComTaxas) : '—';
+  if(lucroEl) lucroEl.textContent = r.divisor > 0 ? fmtMoeda(r.lucroEstimado) : '—';
 }
 
 ['pc-custoproduto','pc-custosadd','pc-frete','pc-extras','pc-margem','pc-taxas-manual'].forEach(id=>{
@@ -2006,24 +2130,48 @@ document.getElementById('pc-taxas-manual')?.addEventListener('input', ()=>{
   }
 });
 
-document.getElementById('sim-custo')?.addEventListener('input', atualizarSimulacao);
-document.getElementById('sim-margem')?.addEventListener('input', atualizarSimulacao);
-document.getElementById('sim-comissao')?.addEventListener('input', atualizarSimulacao);
-document.getElementById('sim-cartao')?.addEventListener('input', atualizarSimulacao);
+['sim-custo-produto','sim-frete','sim-custos-add','sim-extras','sim-margem','sim-comissao','sim-cartao','sim-outras-taxas'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('input', atualizarSimulacao);
+});
 
 function atualizarSimulacao(){
-  const custo = getMoedaValue(document.getElementById('sim-custo'));
-  const margem = parseFloat(document.getElementById('sim-margem').value) || 0;
-  const comissao = parseFloat(document.getElementById('sim-comissao').value) || 0;
-  const cartao = parseFloat(document.getElementById('sim-cartao').value) || 0;
-  const valorMargem = custo * margem/100;
-  const subtotal = custo + valorMargem;
-  const divisor = 1 - comissao/100 - cartao/100;
-  const preco = divisor>0 ? subtotal/divisor : 0;
-  const lucro = preco - custo - preco*(comissao/100+cartao/100);
-  document.getElementById('sim-resultado').innerHTML = custo>0
-    ? 'Preço sugerido: <strong style="color:var(--oliva-escuro)">'+fmtMoeda(preco)+'</strong> &nbsp;•&nbsp; Lucro estimado: <strong>'+fmtMoeda(lucro)+'</strong>'
-    : '';
+  const custoProduto = getMoedaValue(document.getElementById('sim-custo-produto'));
+  const frete = getMoedaValue(document.getElementById('sim-frete'));
+  const custosAdd = getMoedaValue(document.getElementById('sim-custos-add'));
+  const extras = getMoedaValue(document.getElementById('sim-extras'));
+  const margemCampo = document.getElementById('sim-margem');
+  const margemInformada = !!(margemCampo && margemCampo.value.trim() !== '');
+  const margem = margemInformada ? Math.max(0, Number(margemCampo.value)||0) : 0;
+  const comissao = Math.max(0, Number(document.getElementById('sim-comissao')?.value)||0);
+  const cartao = Math.max(0, Number(document.getElementById('sim-cartao')?.value)||0);
+  const outras = Math.max(0, Number(document.getElementById('sim-outras-taxas')?.value)||0);
+  const embalagensTotal = calcularCustosVariaveisSimulacao();
+  const taxasPercentual = comissao + cartao + outras;
+  const resultado = document.getElementById('sim-resultado');
+  if(!resultado) return;
+  if(custoProduto <= 0){
+    resultado.innerHTML = '<div style="font-size:12px;color:var(--texto-sec)">Informe o custo de compra do produto para calcular o preço sugerido.</div>';
+    return;
+  }
+  if(!margemInformada){
+    resultado.innerHTML = '<div style="font-size:12px;color:var(--texto-sec)">Informe o acréscimo desejado. O número 100 é apenas um exemplo, não um valor preenchido.</div>';
+    return;
+  }
+  if(taxasPercentual >= 100){
+    resultado.innerHTML = '<div style="background:var(--vermelho-bg);color:var(--vermelho);padding:12px;border-radius:8px;font-size:13px">A soma das taxas precisa ser inferior a 100% para existir um preço de venda viável.</div>';
+    return;
+  }
+  const r = calcularPrecificacao({custoProduto,custosAdd,frete,extras,margem,taxasPercentual,embalagensTotal});
+  resultado.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:9px;margin-top:8px">'
+    +'<div style="border:1px solid var(--borda);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--texto-sec);margin-bottom:4px">Custo da joia</div><strong>'+fmtMoeda(custoProduto)+'</strong></div>'
+    +'<div style="border:1px solid var(--borda);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--texto-sec);margin-bottom:4px">Custos variáveis selecionados</div><strong>'+fmtMoeda(embalagensTotal)+'</strong></div>'
+    +'<div style="border:1px solid var(--borda);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--texto-sec);margin-bottom:4px">Frete e outros custos</div><strong>'+fmtMoeda(frete+custosAdd+extras)+'</strong></div>'
+    +'<div style="border:1px solid var(--borda);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--texto-sec);margin-bottom:4px">Custo total antes das taxas</div><strong>'+fmtMoeda(r.custoTotal)+'</strong></div>'
+    +'<div style="border:1px solid var(--borda);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--texto-sec);margin-bottom:4px">Taxas estimadas ('+taxasPercentual.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%)</div><strong>'+fmtMoeda(r.taxasValor)+'</strong></div>'
+    +'<div style="border:1px solid var(--borda);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--texto-sec);margin-bottom:4px">Custo total incluindo taxas</div><strong>'+fmtMoeda(r.custoTotalComTaxas)+'</strong></div>'
+    +'<div style="border:1px solid var(--borda);border-radius:8px;padding:11px;background:var(--verde-ok-bg)"><div style="font-size:11px;color:var(--verde-ok);margin-bottom:4px">Preço sugerido</div><strong style="font-size:18px;color:var(--verde-ok)">'+fmtMoeda(r.precoSugerido)+'</strong></div>'
+    +'<div style="border:1px solid var(--borda);border-radius:8px;padding:11px;background:var(--fundo)"><div style="font-size:11px;color:var(--texto-sec);margin-bottom:4px">Lucro estimado após custos e taxas</div><strong style="font-size:18px">'+fmtMoeda(r.lucroEstimado)+'</strong><div style="font-size:11px;color:var(--texto-sec);margin-top:4px">Acréscimo de '+margem.toLocaleString('pt-BR',{maximumFractionDigits:2})+'% somente sobre a joia: '+fmtMoeda(r.valorMargem)+'</div></div>'
+    +'</div>';
 }
 
 let editandoPecaId = null;
@@ -2102,8 +2250,12 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
   document.getElementById('pc-praticado').value='';
   document.getElementById('pc-tamanho').value='';
   document.getElementById('pc-infantil').checked=false;
-  document.querySelectorAll('.pc-embal-check').forEach(c=> c.checked=false);
-  document.querySelectorAll('.pc-taxa-check').forEach(c=> c.checked=false);
+  document.querySelectorAll('.pc-embal-check').forEach(chk=>{
+    chk.checked = true;
+    const qtd = chk.closest('div').querySelector('.pc-embal-qtd');
+    if(qtd){ qtd.disabled = false; qtd.value = '1'; }
+  });
+  document.querySelectorAll('.pc-taxa-check').forEach(chk=> chk.checked=true);
   atualizarDisplayFretePadrao();
   atualizarPreviewPeca();
 });
@@ -2459,7 +2611,7 @@ function renderPecas(){
     const precoPraticado = p.precoPraticado || r.precoSugerido || 0;
     const lucro = precoPraticado - r.custoTotal - precoPraticado*((p.taxasPercentual||0)/100);
     const margemReal = precoPraticado>0 ? (lucro/precoPraticado*100) : 0;
-    const markupPraticado = r.custoTotal>0 ? ((precoPraticado - r.custoTotal)/r.custoTotal*100) : 0;
+    const markupPraticado = (Number(p.custoProduto)||0)>0 ? (lucro/(Number(p.custoProduto)||1)*100) : 0;
     const comprasTotal = (p.compras||[]).length;
 
     return '<div class="card">'
@@ -2484,12 +2636,14 @@ function renderPecas(){
       +'</div>'
       +'<button class="btn-outline" onclick="abrirSeletorPosicao('+p.id+')" style="margin-bottom:12px">🏷 Imprimir etiqueta</button>'
       +'<div class="peca-kpi-grid">'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custo total</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotal)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custos antes das taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotal)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Taxas estimadas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.taxasValor)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custo total com taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotalComTaxas)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço sugerido</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.precoSugerido)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço praticado</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(precoPraticado)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro líquido</div><div style="font-size:15px;font-weight:600" class="'+(lucro>=0?'positivo':'negativo')+'">'+fmtMoeda(lucro)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Margem real</div><div style="font-size:15px;font-weight:600">'+margemReal.toFixed(1)+'%</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Markup praticado</div><div style="font-size:15px;font-weight:600">'+markupPraticado.toFixed(1)+'%</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro sobre custo da joia</div><div style="font-size:15px;font-weight:600">'+markupPraticado.toFixed(1)+'%</div></div>'
       +'</div>'
       +'<button class="btn-outline" onclick="toggleCompras('+p.id+')" id="btn-compras-'+p.id+'">Ver compras ('+comprasTotal+')</button>'
       +'<div id="compras-'+p.id+'" style="display:none;margin-top:14px">'

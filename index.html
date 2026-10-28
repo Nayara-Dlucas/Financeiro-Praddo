@@ -4143,6 +4143,10 @@ document.getElementById('btn-add').addEventListener('click',async ()=>{
   const err=document.getElementById('form-err');
   if(!data||!categoria||!descricao||saida<=0){err.textContent='Preencha a data, categoria, descrição e um valor de saída maior que zero.';err.style.display='block';return;}
   err.style.display='none';
+  const actionButton=document.getElementById('btn-add');
+  if(actionButton.disabled)return;
+  actionButton.disabled=true;
+  try{
   const antigo=editandoLancamentoId?lancamentos.find(l=>Number(l.id)===Number(editandoLancamentoId)):null;
   if(editandoLancamentoId&&!antigo){showToast('Não encontrei a saída para editar.');return;}
   if(antigo){
@@ -4167,6 +4171,7 @@ document.getElementById('btn-add').addEventListener('click',async ()=>{
   document.getElementById('btn-add').textContent='Registrar saída';document.getElementById('btn-cancelar-saida').style.display='none';
   document.getElementById('f-descricao').value='';document.getElementById('f-fornecedor').value='';
   document.getElementById('f-saida').value='';document.getElementById('f-obs').value='';renderTudo();
+  }finally{actionButton.disabled=false;}
 });
 
 let editandoVendaId=null;
@@ -4202,6 +4207,10 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
   const err=document.getElementById('v-err');
   if(!data||!canal||!descricao||entrada<=0){err.textContent='Preencha a data, canal, produto/descrição e um valor recebido maior que zero.';err.style.display='block';return;}
   err.style.display='none';
+  const actionButton=document.getElementById('btn-add-venda');
+  if(actionButton.disabled)return;
+  actionButton.disabled=true;
+  try{
   const antiga=editandoVendaId?lancamentos.find(l=>Number(l.id)===Number(editandoVendaId)):null;
   if(editandoVendaId&&!antiga){showToast('Não encontrei a venda para editar.');return;}
   if(antiga){
@@ -4222,6 +4231,7 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
     showToast('Venda registrada');
   }
   limparFormularioVenda();renderTudo();
+  }finally{actionButton.disabled=false;}
 });
 
 document.getElementById('btn-exportar-backup')?.addEventListener('click', async ()=>{

@@ -3421,36 +3421,25 @@ const MAPA_CATEGORIA_PAGAR = {
   'Outro': 'Outros'
 };
 
-window.toggleStatusPagar = function(id){
-  const c = contasPagar.find(c=> c.id===id);
-  if(!c) return;
-
-  if(c.status !== 'pago'){
-    // marcar como pago -> criar lançamento de saída
-    c.status = 'pago';
-    const novoLancamento = {
-      id: Date.now(),
-      data: new Date().toISOString().slice(0,10),
-      categoria: MAPA_CATEGORIA_PAGAR[c.categoria] || 'Outros',
-      descricao: c.descricao + ' (conta a pagar)',
-      forma: 'Pix',
-      entrada: 0,
-      saida: c.valor
-    };
-    lancamentos.push(novoLancamento);
-    c.lancamentoId = novoLancamento.id;
-    salvarDados();
-  }else{
-    // desmarcar -> remover o lançamento vinculado
-    c.status = 'pendente';
-    if(c.lancamentoId){
-      lancamentos = lancamentos.filter(l=> l.id !== c.lancamentoId);
-      salvarDados();
+window.toggleStatusPagar = async function(id){
+  const c=contasPagar.find(c=>c.id===id);if(!c)return;
+  try{
+    if(c.status!=='pago'){
+      const novoLancamento={id:null,data:new Date().toISOString().slice(0,10),tipo:'saida',
+        categoria:MAPA_CATEGORIA_PAGAR[c.categoria]||'Outros',descricao:c.descricao+' (conta a pagar)',
+        forma:'Pix',entrada:0,saida:c.valor,origem:'painel',idempotencyKey:crypto.randomUUID()};
+      await salvarDados(novoLancamento);
+      lancamentos.push(novoLancamento);c.status='pago';c.lancamentoId=novoLancamento.id;
+    }else{
+      if(c.lancamentoId){
+        const {error}=await sbClient.from('lancamentos_financeiros').update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',Number(c.lancamentoId));
+        if(error)throw error;
+        lancamentos=lancamentos.filter(l=>Number(l.id)!==Number(c.lancamentoId));
+      }
+      c.status='pendente';c.lancamentoId=null;
     }
-    c.lancamentoId = null;
-  }
-  salvarContasPagar();
-  renderTudo();
+    await salvarContasPagar();renderTudo();
+  }catch(e){showToast('Não foi possível atualizar a conta a pagar: '+e.message);}
 }
 
 window.excluirContaPagar = function(id){
@@ -3536,34 +3525,25 @@ function renderContasReceber(){
   }).join('');
 }
 
-window.toggleStatusReceber = function(id){
-  const c = contasReceber.find(c=> c.id===id);
-  if(!c) return;
-
-  if(c.status !== 'recebido'){
-    c.status = 'recebido';
-    const novoLancamento = {
-      id: Date.now(),
-      data: new Date().toISOString().slice(0,10),
-      categoria: 'Outras receitas',
-      descricao: 'Recebimento de '+c.cliente+' (conta a receber)',
-      forma: 'Pix',
-      entrada: c.valor,
-      saida: 0
-    };
-    lancamentos.push(novoLancamento);
-    c.lancamentoId = novoLancamento.id;
-    salvarDados();
-  }else{
-    c.status = 'pendente';
-    if(c.lancamentoId){
-      lancamentos = lancamentos.filter(l=> l.id !== c.lancamentoId);
-      salvarDados();
+window.toggleStatusReceber = async function(id){
+  const c=contasReceber.find(c=>c.id===id);if(!c)return;
+  try{
+    if(c.status!=='recebido'){
+      const novoLancamento={id:null,data:new Date().toISOString().slice(0,10),tipo:'receita',
+        categoria:'Outras receitas',descricao:'Recebimento de '+c.cliente+' (conta a receber)',
+        forma:'Pix',entrada:c.valor,saida:0,origem:'painel',idempotencyKey:crypto.randomUUID()};
+      await salvarDados(novoLancamento);
+      lancamentos.push(novoLancamento);c.status='recebido';c.lancamentoId=novoLancamento.id;
+    }else{
+      if(c.lancamentoId){
+        const {error}=await sbClient.from('lancamentos_financeiros').update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',Number(c.lancamentoId));
+        if(error)throw error;
+        lancamentos=lancamentos.filter(l=>Number(l.id)!==Number(c.lancamentoId));
+      }
+      c.status='pendente';c.lancamentoId=null;
     }
-    c.lancamentoId = null;
-  }
-  salvarContasReceber();
-  renderTudo();
+    await salvarContasReceber();renderTudo();
+  }catch(e){showToast('Não foi possível atualizar a conta a receber: '+e.message);}
 }
 
 window.excluirContaReceber = function(id){
@@ -3644,24 +3624,17 @@ function dasPagoNoMes(mes, ano){
   });
 }
 
-window.marcarDasPago = function(){
-  if(!meiConfig.valor || meiConfig.valor<=0){
-    showToast('Configure o valor do DAS primeiro.');
-    return;
+window.marcarDasPago = async function(){
+  if(!meiConfig.valor||meiConfig.valor<=0){showToast('Configure o valor do DAS primeiro.');return;}
+  const hoje=new Date(),data=hoje.toISOString().slice(0,10);
+  if(lancamentos.some(l=>l.categoria===CATEGORIA_DAS&&l.data.startsWith(hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')))){
+    showToast('O DAS deste mês já consta nos lançamentos.');return;
   }
-  const hoje = new Date();
-  lancamentos.push({
-    id: Date.now(),
-    data: hoje.toISOString().slice(0,10),
-    categoria: CATEGORIA_DAS,
-    descricao: 'DAS MEI — competência '+(hoje.getMonth()+1)+'/'+hoje.getFullYear(),
-    forma: 'Pix',
-    entrada: 0,
-    saida: meiConfig.valor
-  });
-  salvarDados();
-  renderTudo();
-  showToast('DAS marcado como pago e lançado no Fluxo de Caixa');
+  const novo={id:null,data,categoria:CATEGORIA_DAS,tipo:'saida',
+    descricao:'DAS MEI — competência '+(hoje.getMonth()+1)+'/'+hoje.getFullYear(),
+    forma:'Pix',entrada:0,saida:meiConfig.valor,origem:'painel',idempotencyKey:crypto.randomUUID()};
+  try{await salvarDados(novo);lancamentos.push(novo);renderTudo();showToast('DAS marcado como pago e lançado nas saídas.');}
+  catch(e){showToast('Não foi possível lançar o DAS: '+e.message);}
 }
 
 function renderImpostosMei(){

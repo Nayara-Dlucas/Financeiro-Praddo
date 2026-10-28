@@ -425,12 +425,20 @@
     <div class="page-header">
       <div>
         <div class="page-title">Produtos cadastrados</div>
-        <div class="page-sub">Cadastro de modelos, SKU automático, precificação e compras vinculadas</div>
+        <div class="page-sub">Catálogo da Praddo com produtos da Nuvemshop, preços, variações e estoque</div>
       </div>
     </div>
 
+    <div class="card" id="pc-catalogo-import-info" style="border-left:3px solid var(--oliva)">
+      <div class="card-title">Catálogo da Nuvemshop</div>
+      <div id="pc-catalogo-summary" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+        <span class="tag">Carregando catálogo...</span>
+      </div>
+      <div style="font-size:12px;color:var(--texto-sec);line-height:1.6">Os produtos sincronizados são exibidos aqui para consulta. Preços, promoções, estoque e variações têm como fonte a Nuvemshop; alterações comerciais devem ser feitas na loja e depois sincronizadas no catálogo.</div>
+    </div>
+
     <div class="card" style="border-style:dashed">
-      <div class="card-title" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="toggleCardColapsavel('sim')">
+      <div class="card-title" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="toggleCardColapsavel('sim')
         Simulação rápida (sem salvar)
         <span id="chevron-sim" style="color:var(--texto-sec);font-size:12px">▾</span>
       </div>
@@ -2047,6 +2055,10 @@ window.toggleCardColapsavel = function(chave){
 window.editarPeca = function(id){
   const p = pecas.find(p=> p.id===id);
   if(!p) return;
+  if(p.origem === 'nuvemshop'){
+    showToast('Este produto é sincronizado com a Nuvemshop. Atualize o cadastro na loja e depois importe novamente.');
+    return;
+  }
   editandoPecaId = id;
   document.getElementById('pc-nome').value = p.nome;
   document.getElementById('pc-categoria').value = p.categoria;
@@ -2080,6 +2092,82 @@ window.editarPeca = function(id){
   showToast('Taxas de pagamento: marque de novo só se quiser alterar (senão o valor original é mantido)');
 }
 
+
+function escaparHtml(valor){
+  return String(valor ?? '').replace(/[&<>"']/g, c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+function renderProdutoNuvemshop(p){
+  const variantes = Array.isArray(p.variantesNuvemshop) ? p.variantesNuvemshop : [];
+  const precos = variantes.map(v=>Number(v.precoFinal ?? v.preco)).filter(n=>Number.isFinite(n) && n>=0);
+  const minimo = precos.length ? Math.min(...precos) : Number(p.precoPraticado||0);
+  const maximo = precos.length ? Math.max(...precos) : minimo;
+  const precoPrincipal = minimo === maximo ? fmtMoeda(minimo) : 'A partir de ' + fmtMoeda(minimo);
+  const visibilidade = p.visibilidadeNuvemshop === 'unlisted' ? 'Não listado' : 'Visível na loja';
+  const stockTotal = p.estoqueTotalNuvemshop;
+  const stockLabel = stockTotal === null || stockTotal === undefined
+    ? (variantes.some(v=>v.disponibilidade==='in_stock') ? 'Disponível' : 'Estoque não informado')
+    : stockTotal + ' un. em estoque';
+  const categoryTags = (p.categoriasNuvemshop||[]).map(cat=>'<span class="tag">'+escaparHtml(cat)+'</span>').join(' ');
+  const productUrl = typeof p.linkProdutoNuvemshop === 'string' && /^https:\/\//i.test(p.linkProdutoNuvemshop)
+    ? p.linkProdutoNuvemshop : '';
+  const variantsHtml = variantes.length ? variantes.map(v=>{
+    const properties = v.propriedades && Object.keys(v.propriedades).length
+      ? Object.entries(v.propriedades).map(([k,val])=>escaparHtml(k)+': '+escaparHtml(val)).join(' • ')
+      : 'Padrão';
+    const promo = Number(v.precoPromocional);
+    const normal = Number(v.preco||0);
+    const price = Number.isFinite(promo) && promo>0 && promo<normal
+      ? '<span style="color:var(--vermelho);font-weight:600">'+fmtMoeda(promo)+'</span> <span style="font-size:11px;color:var(--texto-sec);text-decoration:line-through">'+fmtMoeda(normal)+'</span>'
+      : '<span style="font-weight:600">'+fmtMoeda(normal)+'</span>';
+    const stock = v.estoque === null || v.estoque === undefined
+      ? (v.disponibilidade==='in_stock' ? 'Disponível' : 'Não informado')
+      : (Number(v.estoque)===0 ? 'Esgotado' : String(v.estoque)+' un.');
+    return '<tr><td>'+properties+'</td><td>'+escaparHtml(v.sku||'—')+'</td><td>'+price+'</td><td>'+escaparHtml(stock)+'</td></tr>';
+  }).join('') : '<tr><td colspan="4">Nenhuma variação detalhada disponível.</td></tr>';
+
+  const tags = (p.tagsNuvemshop||[]).slice(0,20).map(t=>'<span class="tag">'+escaparHtml(t)+'</span>').join(' ');
+  const descricao = escaparHtml(p.descricaoNuvemshop||'');
+  const descricaoVisivel = descricao.length>1800 ? descricao.slice(0,1800)+'…' : descricao;
+  const urlHtml = productUrl
+    ? '<a class="btn-outline" href="'+escaparHtml(productUrl)+'" target="_blank" rel="noopener noreferrer" style="display:inline-block;text-decoration:none;margin-bottom:14px">Ver produto na loja ↗</a>'
+    : '';
+  const promoExiste = variantes.some(v=>{
+    const promo=Number(v.precoPromocional), normal=Number(v.preco||0);
+    return promo>0 && promo<normal;
+  });
+  const faixas = minimo===maximo ? '' : '<div style="font-size:12px;color:var(--texto-sec);margin-top:3px">Até '+fmtMoeda(maximo)+' conforme a variação</div>';
+
+  return '<div class="card">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer" onclick="togglePecaDetalhe('+p.id+')">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:220px;flex-wrap:wrap">'
+        +'<span class="tag" style="background:var(--bege);color:var(--graf);font-weight:600">'+escaparHtml(p.sku||('NUV-'+p.nuvemshopProductId))+'</span>'
+        +(promoExiste?'<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho)">Promoção</span>':'')
+        +'<span style="font-size:14px;font-weight:600">'+escaparHtml(p.nome||'Produto sem nome')+'</span>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'
+        +'<div style="text-align:right"><div style="font-size:15px;font-weight:600;color:var(--oliva-escuro)">'+escaparHtml(precoPrincipal)+'</div>'+faixas+'</div>'
+        +'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
+      +'</div>'
+    +'</div>'
+    +'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">'+categoryTags+'<span class="tag">'+escaparHtml(visibilidade)+'</span><span class="tag">'+escaparHtml(stockLabel)+'</span></div>'
+    +'<div id="detalhe-peca-'+p.id+'" style="display:none;margin-top:16px">'
+      +'<div style="font-size:12px;color:var(--texto-sec);line-height:1.8;margin-bottom:10px">'
+        +'<div><strong>Origem:</strong> Nuvemshop · <strong>ID:</strong> '+escaparHtml(p.nuvemshopProductId||'')+'</div>'
+        +'<div><strong>Variações:</strong> '+variantes.length+' · <strong>Fotos na loja:</strong> '+Number(p.quantidadeImagensNuvemshop||0)+'</div>'
+        +(p.marcaNuvemshop?'<div><strong>Marca:</strong> '+escaparHtml(p.marcaNuvemshop)+'</div>':'')
+      +'</div>'
+      +urlHtml
+      +(descricaoVisivel?'<div style="white-space:pre-wrap;font-size:12px;line-height:1.7;color:var(--texto-sec);margin-bottom:14px">'+descricaoVisivel+'</div>':'')
+      +'<div class="table-scroll"><table><thead><tr><th>Variação</th><th>SKU da variação</th><th>Preço</th><th>Estoque</th></tr></thead><tbody>'+variantsHtml+'</tbody></table></div>'
+      +(tags?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:14px">'+tags+'</div>':'')
+      +((p.seoTitleNuvemshop||p.seoDescriptionNuvemshop)?'<div style="font-size:12px;color:var(--texto-sec);line-height:1.7;margin-top:14px"><strong>SEO</strong>'+(p.seoTitleNuvemshop?'<div>Título: '+escaparHtml(p.seoTitleNuvemshop)+'</div>':'')+(p.seoDescriptionNuvemshop?'<div>Descrição: '+escaparHtml(p.seoDescriptionNuvemshop)+'</div>':'')+'</div>':'')
+    +'</div>'
+  +'</div>';
+}
+
 function renderPecas(){
   const el = document.getElementById('lista-pecas');
   if(!el) return;
@@ -2088,14 +2176,35 @@ function renderPecas(){
     return;
   }
   const termo = removerAcentos((document.getElementById('busca-pecas')?.value||'').toLowerCase());
+  const importados = pecas.filter(p=>p.origem === 'nuvemshop');
+  const summary = document.getElementById('pc-catalogo-summary');
+  if(summary){
+    const visiveis = importados.filter(p=>p.visibilidadeNuvemshop!=='unlisted').length;
+    const naoListados = importados.length-visiveis;
+    const importacao = importados[0]?.nuvemshopImportadoEm;
+    const dataLabel = importacao ? new Date(importacao).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '';
+    summary.innerHTML = '<span class="tag" style="background:var(--verde-ok-bg);color:var(--verde-ok)">'+importados.length+' produtos sincronizados</span>'
+      +'<span class="tag">'+visiveis+' visíveis na loja</span>'
+      +(naoListados?'<span class="tag">'+naoListados+' não listados</span>':'')
+      +(dataLabel?'<span style="font-size:11px;color:var(--texto-sec)">Importação: '+escaparHtml(dataLabel)+'</span>':'');
+  }
   const pecasFiltradas = termo
-    ? pecas.filter(p=> removerAcentos((p.nome||'').toLowerCase()).includes(termo) || removerAcentos((p.sku||'').toLowerCase()).includes(termo))
+    ? pecas.filter(p=> {
+        const searchSpace = [
+          p.nome,p.sku,p.categoria,p.nuvemshopProductId,
+          ...(p.tagsNuvemshop||[]), ...(p.categoriasNuvemshop||[]),
+          ...(p.variantesNuvemshop||[]).map(v=>v.sku),
+          ...(p.variantesNuvemshop||[]).flatMap(v=>Object.values(v.propriedades||{}))
+        ].filter(Boolean).join(' ').toLowerCase();
+        return removerAcentos(searchSpace).includes(termo);
+      })
     : pecas;
   if(pecasFiltradas.length===0){
     el.innerHTML = '<div class="empty"><i>—</i>Nenhum produto encontrado para "'+document.getElementById('busca-pecas').value+'".</div>';
     return;
   }
   el.innerHTML = [...pecasFiltradas].reverse().map(p=>{
+    if(p.origem === 'nuvemshop') return renderProdutoNuvemshop(p);
     const embalagensTotal = (p.embalagens||[]).reduce((s,e)=> s+e.unit*e.qtd, 0);
     const r = calcularPrecificacao({custoProduto:p.custoProduto, custosAdd:p.custosAdd, frete:p.frete, extras:p.extras, margem:p.margem, taxasPercentual:p.taxasPercentual, embalagensTotal});
     const precoPraticado = p.precoPraticado || r.precoSugerido || 0;
@@ -2284,6 +2393,11 @@ window.imprimirEtiquetaNaPosicao = function(id, pos){
 }
 
 window.excluirPeca = function(id){
+  const alvo = pecas.find(p=> p.id===id);
+  if(alvo?.origem === 'nuvemshop'){
+    showToast('Produtos importados são gerenciados pela sincronização com a Nuvemshop.');
+    return;
+  }
   confirmarExclusao("Excluir este produto? Todo o histórico de compras dele também será perdido.", ()=>{
   pecas = pecas.filter(p=> p.id !== id);
   salvarPecas();

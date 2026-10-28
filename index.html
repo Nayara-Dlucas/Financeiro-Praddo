@@ -1991,6 +1991,21 @@ function atualizarPreviewPeca(){
   document.getElementById(id)?.addEventListener('input', atualizarPreviewPeca);
 });
 
+// Mantém sincronizados o percentual manual e as caixas de taxas do formulário.
+document.addEventListener('change', event=>{
+  if(event.target && event.target.matches('.pc-taxa-check')){
+    const manual = document.getElementById('pc-taxas-manual');
+    if(manual) manual.value = '';
+    atualizarPreviewPeca();
+  }
+});
+document.getElementById('pc-taxas-manual')?.addEventListener('input', ()=>{
+  const manual = document.getElementById('pc-taxas-manual');
+  if(manual && manual.value.trim() !== ''){
+    document.querySelectorAll('.pc-taxa-check').forEach(chk=>chk.checked=false);
+  }
+});
+
 document.getElementById('sim-custo')?.addEventListener('input', atualizarSimulacao);
 document.getElementById('sim-margem')?.addEventListener('input', atualizarSimulacao);
 document.getElementById('sim-comissao')?.addEventListener('input', atualizarSimulacao);
@@ -2264,7 +2279,11 @@ window.editarProdutoNuvemshop = function(id){
       +'<div class="field"><label>Categoria para controle interno</label><select id="edit-nuv-categoria">'+categoriaOptions+'</select></div>'
       +'<div class="field"><label>Tamanho / observação do modelo</label><input type="text" id="edit-nuv-tamanho" value="'+escaparHtml(p.tamanho||'')+'" maxlength="120"></div>'
     +'</div>'
-    +'<div class="field" style="margin:10px 0"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto)"><input type="checkbox" id="edit-nuv-infantil" style="width:auto"'+(p.infantil?' checked':'')+'> Produto infantil</label></div>'
+    +'<div class="form-grid" style="grid-template-columns:1fr 1fr;margin:10px 0">'
+      +'<div class="field"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto)"><input type="checkbox" id="edit-nuv-infantil" style="width:auto"'+(p.infantil?' checked':'')+'> Produto infantil</label></div>'
+      +'<div class="field"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto)"><input type="checkbox" id="edit-nuv-publicado" style="width:auto"'+(p.publicadoNuvemshop?' checked':'')+'> Publicado (referência local)</label></div>'
+      +'<div class="field"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto)"><input type="checkbox" id="edit-nuv-frete-gratis" style="width:auto"'+(p.freteGratisNuvemshop?' checked':'')+'> Frete grátis (referência local)</label></div>'
+    +'</div>'
     +'<div class="form-grid" style="grid-template-columns:1fr 1fr">'
       +'<div class="field"><label>Marca</label><input type="text" id="edit-nuv-marca" value="'+escaparHtml(p.marcaNuvemshop||'')+'" maxlength="120"></div>'
       +'<div class="field"><label>Link do produto</label><input type="url" id="edit-nuv-link" value="'+escaparHtml(p.linkProdutoNuvemshop||'')+'" maxlength="500" placeholder="https://..."></div>'
@@ -2353,6 +2372,8 @@ window.salvarEdicaoProdutoNuvemshop = async function(){
   if(sku) p.sku = sku; else delete p.sku;
   p.categoria = get('edit-nuv-categoria')?.value || p.categoria || 'Outros';
   p.infantil = !!get('edit-nuv-infantil')?.checked;
+  p.publicadoNuvemshop = !!get('edit-nuv-publicado')?.checked;
+  p.freteGratisNuvemshop = !!get('edit-nuv-frete-gratis')?.checked;
   p.tamanho = (get('edit-nuv-tamanho')?.value||'').trim();
   p.marcaNuvemshop = (get('edit-nuv-marca')?.value||'').trim();
   p.linkProdutoNuvemshop = (get('edit-nuv-link')?.value||'').trim();

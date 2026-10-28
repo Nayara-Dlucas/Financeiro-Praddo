@@ -634,23 +634,27 @@
     <div class="page-header">
       <div>
         <div class="page-title">Fechamento de caixa</div>
-        <div class="page-sub">Feche por período (ex: quinzenal) — os totais vêm direto do Fluxo de Caixa</div>
+        <div class="page-sub">Feche por período usando as vendas e saídas registradas. Confira os saldos reais dos bancos, Porquinho e reserva sem misturar as movimentações.</div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-title">Novo fechamento</div>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr auto">
+      <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
         <div class="field"><label>Data início</label><input type="date" id="fx-inicio"></div>
         <div class="field"><label>Data fim</label><input type="date" id="fx-fim"></div>
-        <div class="field"><label>Saldo inicial (R$)</label><input type="text" step="0.01" id="fx-saldoinicial" class="money-mask"></div>
-        <div class="field"><label>Saldo conferido (R$)</label><input type="text" step="0.01" id="fx-conferido" class="money-mask" placeholder="Opcional"></div>
-        <button class="btn" id="btn-add-fx">Fechar período</button>
+        <div class="field"><label>Saldo inicial — Inter conta corrente (R$)</label><input type="text" id="fx-saldoinicial" class="money-mask" placeholder="Saldo no início do período"></div>
+        <div class="field"><label>Saldo real ao final — Inter conta corrente (R$)</label><input type="text" id="fx-conferido" class="money-mask" placeholder="Saldo conferido no banco"></div>
+        <div class="field"><label>Saldo inicial — Porquinho Caixa da loja (R$)</label><input type="text" id="fx-porquinho-inicial" class="money-mask" placeholder="Opcional"></div>
+        <div class="field"><label>Saldo real ao final — Porquinho (R$)</label><input type="text" id="fx-porquinho-final" class="money-mask" placeholder="Opcional"></div>
+        <div class="field"><label>Valor realmente depositado na reserva (R$)</label><input type="text" id="fx-reserva-deposito" class="money-mask" placeholder="Opcional"></div>
+        <div class="field"><label>Saldo total da reserva após depósito (R$)</label><input type="text" id="fx-reserva-total" class="money-mask" placeholder="Opcional"></div>
+        <div class="field"><label>Pró-labore realmente retirado (R$)</label><input type="text" id="fx-prolabore-real" class="money-mask" placeholder="Opcional"></div>
       </div>
-      <div class="field" style="margin-bottom:14px">
-        <label>Observações</label>
-        <input type="text" id="fx-obs" placeholder="Opcional">
+      <div class="field" style="margin:12px 0 14px">
+        <label>Observações</label><input type="text" id="fx-obs" placeholder="Diferenças identificadas, transferências e detalhes da conferência">
       </div>
+      <button class="btn" id="btn-add-fx" style="margin-bottom:14px">Fechar período</button>
       <div class="err" id="fx-err"></div>
       <div class="card" style="background:var(--fundo);border-style:dashed" id="fx-preview">
         <div style="font-size:13px;color:var(--texto-sec)">Preencha as datas pra ver a prévia do período</div>
@@ -3052,10 +3056,11 @@ document.getElementById('btn-add-fn')?.addEventListener('click', ()=>{
 // ===== FECHAMENTO DE CAIXA =====
 
 function totaisPeriodo(inicio, fim){
-  const itens = lancamentos.filter(l=> l.data >= inicio && l.data <= fim);
-  const entradas = itens.reduce((s,l)=> s+(l.entrada||0), 0);
-  const saidas = itens.reduce((s,l)=> s+(l.saida||0), 0);
-  return {entradas, saidas};
+  const itens=lancamentos.filter(l=>l.data>=inicio&&l.data<=fim);
+  const entradas=itens.reduce((s,l)=>s+(Number(l.entrada)||0),0);
+  const saidas=itens.reduce((s,l)=>s+(Number(l.saida)||0),0);
+  const vendas=itens.filter(l=>l.tipo==='venda').reduce((s,l)=>s+(Number(l.entrada)||0),0);
+  return {entradas,saidas,vendas};
 }
 
 function preencherSaldoInicialSugerido(){
@@ -3075,76 +3080,73 @@ function atualizarPreviewFechamento(){
     return;
   }
   const saldoInicial = getMoedaValue(document.getElementById('fx-saldoinicial'));
-  const {entradas, saidas} = totaisPeriodo(inicio, fim);
-  const saldoCalculado = saldoInicial + entradas - saidas;
-  preview.innerHTML = '<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">'
-    +'<div>Entradas: <strong class="val-entrada">'+fmtMoeda(entradas)+'</strong></div>'
+  const {entradas,saidas,vendas}=totaisPeriodo(inicio,fim);
+  const saldoCalculado=saldoInicial+entradas-saidas;
+  preview.innerHTML='<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">'
+    +'<div>Vendas registradas: <strong class="val-entrada">'+fmtMoeda(vendas)+'</strong></div>'
+    +'<div>Entradas totais: <strong class="val-entrada">'+fmtMoeda(entradas)+'</strong></div>'
     +'<div>Saídas: <strong class="val-saida">'+fmtMoeda(saidas)+'</strong></div>'
-    +'<div>Saldo calculado: <strong>'+fmtMoeda(saldoCalculado)+'</strong></div>'
-    +'</div>';
+    +'<div>Saldo calculado do fluxo: <strong>'+fmtMoeda(saldoCalculado)+'</strong></div>'
+    +'<div>Referência de pró-labore (10% das vendas): <strong>'+fmtMoeda(vendas*0.10)+'</strong></div>'
+    +'<div>Referência de reserva (5% das vendas): <strong>'+fmtMoeda(vendas*0.05)+'</strong></div>'
+    +'</div><div style="font-size:11px;color:var(--texto-sec);margin-top:8px">Os percentuais são apenas referência. O fechamento guarda os valores realmente retirados ou transferidos que você informar.</div>';
 }
 
 ['fx-inicio','fx-fim','fx-saldoinicial'].forEach(id=>{
   document.getElementById(id)?.addEventListener('input', atualizarPreviewFechamento);
 });
 
-document.getElementById('btn-add-fx')?.addEventListener('click', ()=>{
-  const inicio = document.getElementById('fx-inicio').value;
-  const fim = document.getElementById('fx-fim').value;
-  const saldoInicial = getMoedaValue(document.getElementById('fx-saldoinicial'));
-  const conferidoInput = document.getElementById('fx-conferido').value;
-  const conferido = conferidoInput!=='' ? parseFloat(conferidoInput) : null;
-  const obs = document.getElementById('fx-obs').value.trim();
-  const err = document.getElementById('fx-err');
-
-  if(!inicio || !fim || fim<inicio){
-    err.textContent = 'Preencha data início e fim, com fim depois (ou igual a) do início.';
-    err.style.display = 'block';
-    return;
-  }
-  err.style.display = 'none';
-
-  const {entradas, saidas} = totaisPeriodo(inicio, fim);
-  const saldoCalculado = saldoInicial + entradas - saidas;
-
-  fechamentos.push({id: Date.now(), inicio, fim, saldoInicial, entradas, saidas, saldoCalculado, conferido, obs});
-  salvarFechamentos();
+document.getElementById('btn-add-fx')?.addEventListener('click', async ()=>{
+  const inicio=document.getElementById('fx-inicio').value;
+  const fim=document.getElementById('fx-fim').value;
+  const saldoInicial=getMoedaValue(document.getElementById('fx-saldoinicial'));
+  const conferido=document.getElementById('fx-conferido').value.trim()!==''?getMoedaValue(document.getElementById('fx-conferido')):null;
+  const porquinhoInicial=document.getElementById('fx-porquinho-inicial').value.trim()!==''?getMoedaValue(document.getElementById('fx-porquinho-inicial')):null;
+  const porquinhoFinal=document.getElementById('fx-porquinho-final').value.trim()!==''?getMoedaValue(document.getElementById('fx-porquinho-final')):null;
+  const reservaDeposito=document.getElementById('fx-reserva-deposito').value.trim()!==''?getMoedaValue(document.getElementById('fx-reserva-deposito')):null;
+  const reservaTotal=document.getElementById('fx-reserva-total').value.trim()!==''?getMoedaValue(document.getElementById('fx-reserva-total')):null;
+  const proLaboreReal=document.getElementById('fx-prolabore-real').value.trim()!==''?getMoedaValue(document.getElementById('fx-prolabore-real')):null;
+  const obs=document.getElementById('fx-obs').value.trim();
+  const err=document.getElementById('fx-err');
+  if(!inicio||!fim||fim<inicio){err.textContent='Preencha data início e fim, com fim depois (ou igual a) do início.';err.style.display='block';return;}
+  err.style.display='none';
+  const {entradas,saidas,vendas}=totaisPeriodo(inicio,fim);
+  const saldoCalculado=saldoInicial+entradas-saidas;
+  const fechamento={id:Date.now(),inicio,fim,saldoInicial,entradas,saidas,vendas,saldoCalculado,conferido,
+    porquinhoInicial,porquinhoFinal,reservaDeposito,reservaTotal,proLaboreReal,obs};
+  fechamentos.push(fechamento);
+  await salvarFechamentos();
   renderFechamentos();
-
-  document.getElementById('fx-inicio').value='';
-  document.getElementById('fx-fim').value='';
-  document.getElementById('fx-saldoinicial').value='';
-  document.getElementById('fx-conferido').value='';
-  document.getElementById('fx-obs').value='';
-  document.getElementById('fx-preview').innerHTML = '<div style="font-size:13px;color:var(--texto-sec)">Preencha as datas pra ver a prévia do período</div>';
+  ['fx-inicio','fx-fim','fx-saldoinicial','fx-conferido','fx-porquinho-inicial','fx-porquinho-final','fx-reserva-deposito','fx-reserva-total','fx-prolabore-real','fx-obs'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('fx-preview').innerHTML='<div style="font-size:13px;color:var(--texto-sec)">Preencha as datas pra ver a prévia do período</div>';
   showToast('Período fechado');
 });
 
 function renderFechamentos(){
-  const el = document.getElementById('lista-fechamentos');
-  if(!el) return;
-  if(fechamentos.length===0){
-    el.innerHTML = '<div class="empty"><i>—</i>Nenhum fechamento registrado ainda.</div>';
-    return;
-  }
-  el.innerHTML = [...fechamentos].sort((a,b)=> b.fim.localeCompare(a.fim)).map(f=>{
-    const temConferido = f.conferido!==null && f.conferido!==undefined;
-    const diferenca = temConferido ? (f.conferido - f.saldoCalculado) : null;
-    return '<div class="card">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">'
-        +'<div style="font-size:14px;font-weight:600">'+fmtData(f.inicio)+' a '+fmtData(f.fim)+'</div>'
-        +'<button class="del-btn" onclick="excluirFechamento('+f.id+')" aria-label="Excluir">🗑</button>'
-      +'</div>'
+  const el=document.getElementById('lista-fechamentos');if(!el)return;
+  if(fechamentos.length===0){el.innerHTML='<div class="empty"><i>—</i>Nenhum fechamento registrado ainda.</div>';return;}
+  el.innerHTML=[...fechamentos].sort((a,b)=>b.fim.localeCompare(a.fim)).map(f=>{
+    const temConferido=f.conferido!==null&&f.conferido!==undefined;
+    const diferenca=temConferido?Number(f.conferido)-Number(f.saldoCalculado):null;
+    const kpi=(label,value,cls='')=>'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">'+label+'</div><div style="font-size:15px;font-weight:600" class="'+cls+'">'+value+'</div></div>';
+    const money=(v)=>v===null||v===undefined?'—':fmtMoeda(Number(v)||0);
+    return '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">'
+      +'<div style="font-size:14px;font-weight:600">'+fmtData(f.inicio)+' a '+fmtData(f.fim)+'</div>'
+      +'<button class="del-btn" onclick="excluirFechamento('+f.id+')" aria-label="Excluir">🗑</button></div>'
       +'<div class="peca-kpi-grid">'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Saldo inicial</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(f.saldoInicial)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Entradas</div><div style="font-size:15px;font-weight:600" class="positivo">'+fmtMoeda(f.entradas)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Saídas</div><div style="font-size:15px;font-weight:600" class="negativo">'+fmtMoeda(f.saidas)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Saldo calculado</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(f.saldoCalculado)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Saldo conferido</div><div style="font-size:15px;font-weight:600">'+(temConferido?fmtMoeda(f.conferido):'—')+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Diferença</div><div style="font-size:15px;font-weight:600" class="'+(temConferido?(diferenca===0?'':(diferenca>0?'positivo':'negativo')):'')+'">'+(temConferido?fmtMoeda(diferenca):'—')+'</div></div>'
-      +'</div>'
-      +(f.obs ? '<div style="font-size:13px;color:var(--texto-sec)">'+f.obs+'</div>' : '')
-    +'</div>';
+      +kpi('Saldo inicial — Inter conta corrente',money(f.saldoInicial))
+      +kpi('Entradas',money(f.entradas),'positivo')
+      +kpi('Saídas',money(f.saidas),'negativo')
+      +kpi('Saldo calculado do fluxo',money(f.saldoCalculado))
+      +kpi('Saldo real final — Inter',money(f.conferido))
+      +kpi('Diferença — Inter',temConferido?money(diferenca):'—',temConferido?(diferenca===0?'':diferenca>0?'positivo':'negativo'):'')
+      +kpi('Saldo inicial — Porquinho',money(f.porquinhoInicial))
+      +kpi('Saldo real final — Porquinho',money(f.porquinhoFinal))
+      +kpi('Depósito real na reserva',money(f.reservaDeposito))
+      +kpi('Saldo total da reserva',money(f.reservaTotal))
+      +kpi('Pró-labore realmente retirado',money(f.proLaboreReal))
+      +kpi('Vendas registradas',money(f.vendas))
+      +'</div>'+(f.obs?'<div style="font-size:13px;color:var(--texto-sec);margin-top:10px">'+f.obs+'</div>':'')+'</div>';
   }).join('');
 }
 

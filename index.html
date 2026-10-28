@@ -1425,9 +1425,9 @@ function atualizarDisplayFretePadrao(){
   const campo = document.getElementById('fp-valor');
   if(campo && document.activeElement !== campo) campo.value = fretePadrao;
   const campoPeca = document.getElementById('pc-frete');
-  if(campoPeca && !campoPeca.value && document.activeElement !== campoPeca) campoPeca.value = fretePadrao;
+  if(campoPeca && !campoPeca.value && document.activeElement !== campoPeca) setMoedaValue(campoPeca, fretePadrao);
   const campoSimFrete = document.getElementById('sim-frete');
-  if(campoSimFrete && !campoSimFrete.value && document.activeElement !== campoSimFrete) campoSimFrete.value = fretePadrao;
+  if(campoSimFrete && !campoSimFrete.value && document.activeElement !== campoSimFrete) setMoedaValue(campoSimFrete, fretePadrao);
 }
 
 function renderResumo(){
@@ -1871,6 +1871,8 @@ function renderTaxasCheckbox(){
 
 window.marcarTodasTaxas = function(valor){
   document.querySelectorAll('.pc-taxa-check').forEach(chk=> chk.checked = valor);
+  const manual = document.getElementById('pc-taxas-manual');
+  if(manual) manual.value = '';
   atualizarPreviewPeca();
 }
 
@@ -2138,7 +2140,8 @@ function atualizarSimulacao(){
   const custosAdd = getMoedaValue(document.getElementById('sim-custos-add'));
   const extras = getMoedaValue(document.getElementById('sim-extras'));
   const margemCampo = document.getElementById('sim-margem');
-  const margem = margemCampo && margemCampo.value.trim() !== '' ? Math.max(0, Number(margemCampo.value)||0) : 100;
+  const margemInformada = !!(margemCampo && margemCampo.value.trim() !== '');
+  const margem = margemInformada ? Math.max(0, Number(margemCampo.value)||0) : 0;
   const comissao = Math.max(0, Number(document.getElementById('sim-comissao')?.value)||0);
   const cartao = Math.max(0, Number(document.getElementById('sim-cartao')?.value)||0);
   const outras = Math.max(0, Number(document.getElementById('sim-outras-taxas')?.value)||0);
@@ -2148,6 +2151,10 @@ function atualizarSimulacao(){
   if(!resultado) return;
   if(custoProduto <= 0){
     resultado.innerHTML = '<div style="font-size:12px;color:var(--texto-sec)">Informe o custo de compra do produto para calcular o preço sugerido.</div>';
+    return;
+  }
+  if(!margemInformada){
+    resultado.innerHTML = '<div style="font-size:12px;color:var(--texto-sec)">Informe o acréscimo desejado. O número 100 é apenas um exemplo, não um valor preenchido.</div>';
     return;
   }
   if(taxasPercentual >= 100){

@@ -450,8 +450,13 @@
         </div>
         <div style="font-size:11px;color:var(--texto-sec);margin:4px 0 12px">Comissão e taxas são preenchidas com os valores cadastrados em Custos da loja → Taxas de pagamento. Você pode ajustá-las apenas para testar este cenário.</div>
         <div class="field" style="margin:10px 0 14px">
-          <label>Custos variáveis usados nesta peça (embalagens, brindes e insumos)</label>
-          <div id="sim-custos-variaveis-lista" style="border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:13px;max-height:260px;overflow:auto"></div>
+          <div class="card-title" role="button" tabindex="0" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px" onclick="toggleCardColapsavel('sim-custos')">
+            <span>Custos variáveis usados nesta peça (embalagens, brindes e insumos)</span>
+            <span id="chevron-sim-custos" style="color:var(--texto-sec);font-size:12px">▾</span>
+          </div>
+          <div id="conteudo-sim-custos" style="display:none">
+            <div id="sim-custos-variaveis-lista" style="border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:13px;max-height:260px;overflow:auto"></div>
+          </div>
         </div>
         <div id="sim-resultado" style="margin-top:10px;font-size:14px"></div>
       </div>
@@ -497,8 +502,13 @@
       <div style="font-size:11px;color:var(--texto-sec);margin-bottom:14px;margin-top:-8px">Frete pré-preenchido com o valor padrão (definido em Custos da loja) — ajuste se esse lote teve outra proporção de frete/quantidade.</div>
 
       <div class="field" style="margin-bottom:14px">
-        <label>Embalagens/brindes usados nessa peça</label>
-        <div id="pc-embalagens-lista" style="border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:13px"></div>
+        <div class="card-title" role="button" tabindex="0" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px" onclick="toggleCardColapsavel('pc-embalagens')">
+          <span>Embalagens/brindes usados nessa peça</span>
+          <span id="chevron-pc-embalagens" style="color:var(--texto-sec);font-size:12px">▾</span>
+        </div>
+        <div id="conteudo-pc-embalagens" style="display:none">
+          <div id="pc-embalagens-lista" style="border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:13px"></div>
+        </div>
       </div>
 
       <div class="form-grid" style="grid-template-columns:1fr">
@@ -506,9 +516,14 @@
       </div>
 
       <div class="field" style="margin-bottom:14px">
-        <label>Taxas de pagamento aplicadas</label>
-        <div id="pc-taxas-lista" style="border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:13px"></div>
-        <div class="field" style="max-width:260px;margin-top:10px"><label>Taxas e comissões totais (%)</label><input type="number" min="0" max="99.99" step="0.01" id="pc-taxas-manual" placeholder="Vazio = somar taxas marcadas"><small style="display:block;color:var(--texto-sec);font-size:11px;margin-top:4px">Você pode informar diretamente o percentual total usado neste produto. Apague o valor para voltar a somar as taxas marcadas.</small></div>
+        <div class="card-title" role="button" tabindex="0" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px" onclick="toggleCardColapsavel('pc-taxas')">
+          <span>Taxas de pagamento aplicadas</span>
+          <span id="chevron-pc-taxas" style="color:var(--texto-sec);font-size:12px">▾</span>
+        </div>
+        <div id="conteudo-pc-taxas" style="display:none">
+          <div id="pc-taxas-lista" style="border:1px solid var(--borda);border-radius:8px;padding:10px;font-size:13px"></div>
+          <div class="field" style="max-width:260px;margin-top:10px"><label>Taxas e comissões totais (%)</label><input type="number" min="0" max="99.99" step="0.01" id="pc-taxas-manual" placeholder="Vazio = somar taxas marcadas"><small style="display:block;color:var(--texto-sec);font-size:11px;margin-top:4px">Você pode informar diretamente o percentual total usado neste produto. Apague o valor para voltar a somar as taxas marcadas.</small></div>
+        </div>
       </div>
 
       <div class="card" style="background:var(--fundo);border-style:dashed;margin-bottom:14px">

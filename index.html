@@ -1025,7 +1025,7 @@ function ehPalavraDeParada(p){
 function extrairPalavraModelo(nome){
   const palavras = String(nome ?? '').normalize('NFC')
     .toLowerCase()
-    .replace(/[^\\p{L}\\p{N}\\s]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter(Boolean);
   const partes = [];

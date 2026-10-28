@@ -646,7 +646,8 @@
         <div class="field"><label>Saldo inicial — Inter conta corrente (R$)</label><input type="text" id="fx-saldoinicial" class="money-mask" placeholder="Saldo no início do período"></div>
         <div class="field"><label>Saldo real ao final — Inter conta corrente (R$)</label><input type="text" id="fx-conferido" class="money-mask" placeholder="Saldo conferido no banco"></div>
         <div class="field"><label>Saldo inicial — Porquinho Caixa da loja (R$)</label><input type="text" id="fx-porquinho-inicial" class="money-mask" placeholder="Opcional"></div>
-        <div class="field"><label>Saldo real ao final — Porquinho (R$)</label><input type="text" id="fx-porquinho-final" class="money-mask" placeholder="Opcional"></div>
+        <div class="field"><label>Valor realmente transferido para o Porquinho (R$)</label><input type="text" id="fx-porquinho-transferencia" class="money-mask" placeholder="Opcional"></div>
+        <div class="field"><label>Saldo total do Porquinho após transferência (R$)</label><input type="text" id="fx-porquinho-final" class="money-mask" placeholder="Opcional"></div>
         <div class="field"><label>Valor realmente depositado na reserva (R$)</label><input type="text" id="fx-reserva-deposito" class="money-mask" placeholder="Opcional"></div>
         <div class="field"><label>Saldo total da reserva após depósito (R$)</label><input type="text" id="fx-reserva-total" class="money-mask" placeholder="Opcional"></div>
         <div class="field"><label>Pró-labore realmente retirado (R$)</label><input type="text" id="fx-prolabore-real" class="money-mask" placeholder="Opcional"></div>
@@ -1332,7 +1333,7 @@ async function carregarDados(){
 async function salvarDados(lancamento){
   if(!lancamento)throw new Error('O lançamento não foi informado para salvar.');
   const row={
-    user_id:AUTHORIZED_USER_ID,data:lancamento.data,
+    user_id:AUTHORIZED_USER_ID,data:lancamento.data,updated_at:new Date().toISOString(),deleted_at:null,
     tipo:lancamento.tipo||((Number(lancamento.saida)||0)>0?'saida':(String(lancamento.categoria||'').toLowerCase().startsWith('venda')?'venda':'receita')),
     categoria:lancamento.categoria||'Outros',descricao:lancamento.descricao||'Sem descrição',
     forma:lancamento.forma||null,conta_id:lancamento.contaId?Number(lancamento.contaId):null,
@@ -3062,15 +3063,20 @@ function totaisPeriodo(inicio, fim){
   const entradas=itens.reduce((s,l)=>s+(Number(l.entrada)||0),0);
   const saidas=itens.reduce((s,l)=>s+(Number(l.saida)||0),0);
   const vendas=itens.filter(l=>l.tipo==='venda').reduce((s,l)=>s+(Number(l.entrada)||0),0);
-  return {entradas,saidas,vendas};
+  const contaInter=contasBancarias.find(c=>(c.nome||'').toLocaleLowerCase('pt-BR').includes('inter'));
+  const itensInter=contaInter?itens.filter(l=>Number(l.contaId)===Number(contaInter.id)):[];
+  const entradasInter=itensInter.reduce((sum,l)=>sum+(Number(l.entrada)||0),0);
+  const saidasInter=itensInter.reduce((sum,l)=>sum+(Number(l.saida)||0),0);
+  return {entradas,saidas,vendas,entradasInter,saidasInter,contaInterNome:contaInter?.nome||null};
 }
 
 function preencherSaldoInicialSugerido(){
-  const campo = document.getElementById('fx-saldoinicial');
-  if(!campo || campo.value) return;
-  if(fechamentos.length===0){ campo.value = 0; return; }
-  const ultimo = [...fechamentos].sort((a,b)=> b.fim.localeCompare(a.fim))[0];
-  campo.value = (ultimo.conferido!==null && ultimo.conferido!==undefined) ? ultimo.conferido : ultimo.saldoCalculado;
+  const campo=document.getElementById('fx-saldoinicial');
+  if(!campo||campo.value)return;
+  if(fechamentos.length===0){campo.value='';return;}
+  const ultimo=[...fechamentos].sort((a,b)=>b.fim.localeCompare(a.fim))[0];
+  const saldo=(ultimo.conferido!==null&&ultimo.conferido!==undefined)?ultimo.conferido:ultimo.saldoCalculado;
+  if(saldo!==null&&saldo!==undefined)setMoedaValue(campo,saldo);
 }
 
 function atualizarPreviewFechamento(){
@@ -3082,16 +3088,18 @@ function atualizarPreviewFechamento(){
     return;
   }
   const saldoInicial = getMoedaValue(document.getElementById('fx-saldoinicial'));
-  const {entradas,saidas,vendas}=totaisPeriodo(inicio,fim);
-  const saldoCalculado=saldoInicial+entradas-saidas;
+  const {entradas,saidas,vendas,entradasInter,saidasInter,contaInterNome}=totaisPeriodo(inicio,fim);
+  const saldoInterCalculado=saldoInicial+entradasInter-saidasInter;
   preview.innerHTML='<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">'
     +'<div>Vendas registradas: <strong class="val-entrada">'+fmtMoeda(vendas)+'</strong></div>'
-    +'<div>Entradas totais: <strong class="val-entrada">'+fmtMoeda(entradas)+'</strong></div>'
-    +'<div>Saídas: <strong class="val-saida">'+fmtMoeda(saidas)+'</strong></div>'
-    +'<div>Saldo calculado do fluxo: <strong>'+fmtMoeda(saldoCalculado)+'</strong></div>'
+    +'<div>Entradas totais (todas as contas): <strong class="val-entrada">'+fmtMoeda(entradas)+'</strong></div>'
+    +'<div>Saídas totais (todas as contas): <strong class="val-saida">'+fmtMoeda(saidas)+'</strong></div>'
+    +'<div>Entradas vinculadas à conta '+(contaInterNome||'Inter (não identificada)')+': <strong class="val-entrada">'+fmtMoeda(entradasInter)+'</strong></div>'
+    +'<div>Saídas vinculadas à conta '+(contaInterNome||'Inter (não identificada)')+': <strong class="val-saida">'+fmtMoeda(saidasInter)+'</strong></div>'
+    +'<div>Saldo projetado — Inter (somente lançamentos vinculados): <strong>'+fmtMoeda(saldoInterCalculado)+'</strong></div>'
     +'<div>Referência de pró-labore (10% das vendas): <strong>'+fmtMoeda(vendas*0.10)+'</strong></div>'
     +'<div>Referência de reserva (5% das vendas): <strong>'+fmtMoeda(vendas*0.05)+'</strong></div>'
-    +'</div><div style="font-size:11px;color:var(--texto-sec);margin-top:8px">Os percentuais são apenas referência. O fechamento guarda os valores realmente retirados ou transferidos que você informar.</div>';
+    +'</div><div style="font-size:11px;color:var(--texto-sec);margin-top:8px">Lançamentos sem conta vinculada não entram na projeção do Inter. Os percentuais são referências; o fechamento guarda os valores realmente transferidos ou retirados que você informar.</div>';
 }
 
 ['fx-inicio','fx-fim','fx-saldoinicial'].forEach(id=>{
@@ -3104,6 +3112,7 @@ document.getElementById('btn-add-fx')?.addEventListener('click', async ()=>{
   const saldoInicial=getMoedaValue(document.getElementById('fx-saldoinicial'));
   const conferido=document.getElementById('fx-conferido').value.trim()!==''?getMoedaValue(document.getElementById('fx-conferido')):null;
   const porquinhoInicial=document.getElementById('fx-porquinho-inicial').value.trim()!==''?getMoedaValue(document.getElementById('fx-porquinho-inicial')):null;
+  const porquinhoTransferencia=document.getElementById('fx-porquinho-transferencia').value.trim()!==''?getMoedaValue(document.getElementById('fx-porquinho-transferencia')):null;
   const porquinhoFinal=document.getElementById('fx-porquinho-final').value.trim()!==''?getMoedaValue(document.getElementById('fx-porquinho-final')):null;
   const reservaDeposito=document.getElementById('fx-reserva-deposito').value.trim()!==''?getMoedaValue(document.getElementById('fx-reserva-deposito')):null;
   const reservaTotal=document.getElementById('fx-reserva-total').value.trim()!==''?getMoedaValue(document.getElementById('fx-reserva-total')):null;
@@ -3111,11 +3120,14 @@ document.getElementById('btn-add-fx')?.addEventListener('click', async ()=>{
   const obs=document.getElementById('fx-obs').value.trim();
   const err=document.getElementById('fx-err');
   if(!inicio||!fim||fim<inicio){err.textContent='Preencha data início e fim, com fim depois (ou igual a) do início.';err.style.display='block';return;}
+  if(document.getElementById('fx-saldoinicial').value.trim()===''){err.textContent='Informe o saldo inicial real da conta corrente Inter.';err.style.display='block';return;}
   err.style.display='none';
-  const {entradas,saidas,vendas}=totaisPeriodo(inicio,fim);
-  const saldoCalculado=saldoInicial+entradas-saidas;
-  const fechamento={id:Date.now(),inicio,fim,saldoInicial,entradas,saidas,vendas,saldoCalculado,conferido,
-    porquinhoInicial,porquinhoFinal,reservaDeposito,reservaTotal,proLaboreReal,obs};
+  const {entradas,saidas,vendas,entradasInter,saidasInter,contaInterNome}=totaisPeriodo(inicio,fim);
+  const saldoCalculado=saldoInicial+entradasInter-saidasInter;
+  const fluxoLiquido=entradas-saidas;
+  const fechamento={id:Date.now(),inicio,fim,saldoInicial,entradas,saidas,vendas,saldoCalculado,fluxoLiquido,
+    entradasInter,saidasInter,contaInterNome,conferido,porquinhoInicial,porquinhoTransferencia,porquinhoFinal,
+    reservaDeposito,reservaTotal,proLaboreReal,obs};
   fechamentos.push(fechamento);
   if(!(await salvarFechamentos())){
     fechamentos.pop();
@@ -3123,7 +3135,7 @@ document.getElementById('btn-add-fx')?.addEventListener('click', async ()=>{
     return;
   }
   renderFechamentos();
-  ['fx-inicio','fx-fim','fx-saldoinicial','fx-conferido','fx-porquinho-inicial','fx-porquinho-final','fx-reserva-deposito','fx-reserva-total','fx-prolabore-real','fx-obs'].forEach(id=>{document.getElementById(id).value='';});
+  ['fx-inicio','fx-fim','fx-saldoinicial','fx-conferido','fx-porquinho-inicial','fx-porquinho-transferencia','fx-porquinho-final','fx-reserva-deposito','fx-reserva-total','fx-prolabore-real','fx-obs'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('fx-preview').innerHTML='<div style="font-size:13px;color:var(--texto-sec)">Preencha as datas pra ver a prévia do período</div>';
   showToast('Período fechado');
 });
@@ -3143,11 +3155,14 @@ function renderFechamentos(){
       +kpi('Saldo inicial — Inter conta corrente',money(f.saldoInicial))
       +kpi('Entradas',money(f.entradas),'positivo')
       +kpi('Saídas',money(f.saidas),'negativo')
-      +kpi('Saldo calculado do fluxo',money(f.saldoCalculado))
+      +kpi('Entradas ligadas à conta Inter',money(f.entradasInter),'positivo')
+      +kpi('Saídas ligadas à conta Inter',money(f.saidasInter),'negativo')
+      +kpi('Saldo projetado — Inter',money(f.saldoCalculado))
       +kpi('Saldo real final — Inter',money(f.conferido))
       +kpi('Diferença — Inter',temConferido?money(diferenca):'—',temConferido?(diferenca===0?'':diferenca>0?'positivo':'negativo'):'')
       +kpi('Saldo inicial — Porquinho',money(f.porquinhoInicial))
-      +kpi('Saldo real final — Porquinho',money(f.porquinhoFinal))
+      +kpi('Valor transferido para Porquinho',money(f.porquinhoTransferencia))
+      +kpi('Saldo final — Porquinho',money(f.porquinhoFinal))
       +kpi('Depósito real na reserva',money(f.reservaDeposito))
       +kpi('Saldo total da reserva',money(f.reservaTotal))
       +kpi('Pró-labore realmente retirado',money(f.proLaboreReal))

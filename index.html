@@ -103,10 +103,51 @@
     .form-grid{grid-template-columns:1fr 1fr}
     .peca-kpi-grid{grid-template-columns:repeat(2,1fr)}
   }
+
+  /* ===== AUTENTICAÇÃO DO PAINEL ===== */
+  .auth-gate{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--fundo)}
+  .auth-card{width:min(100%,410px);background:var(--card);border:1px solid var(--borda);border-radius:18px;padding:32px;box-shadow:0 18px 60px rgba(28,26,23,.10)}
+  .auth-logo{color:var(--graf);font-size:25px;font-weight:700;letter-spacing:.2px;margin-bottom:5px}
+  .auth-logo span{color:var(--oliva);font-weight:400}
+  .auth-subtitle{font-size:13px;line-height:1.5;color:var(--texto-sec);margin-bottom:25px}
+  .auth-field{margin-bottom:16px}
+  .auth-field label{display:block;font-size:12px;color:var(--texto-sec);margin-bottom:6px}
+  .auth-field input{width:100%;padding:12px 13px;border:1px solid var(--borda);border-radius:8px;font-size:14px;background:#fff;color:var(--texto)}
+  .auth-field input:focus{outline:none;border-color:var(--oliva);box-shadow:0 0 0 3px rgba(92,107,74,.12)}
+  .auth-btn{width:100%;padding:12px 16px;margin-top:4px}
+  .auth-btn:disabled{opacity:.65;cursor:wait}
+  .auth-message{min-height:18px;margin-top:13px;font-size:12px;line-height:1.5;color:var(--vermelho)}
+  .auth-foot{border-top:1px solid var(--borda);margin-top:20px;padding-top:14px;font-size:11px;line-height:1.5;color:var(--texto-sec)}
+  .sidebar-account{margin-top:24px;padding:14px 10px 0;border-top:1px solid rgba(255,255,255,.12);color:#C9C6C0}
+  .sidebar-account .account-email{font-size:11px;overflow-wrap:anywhere;margin-bottom:9px;color:#A9A69E}
+  .sidebar-account .btn-outline{color:var(--bege);border-color:rgba(255,255,255,.22);width:100%}
+  @media (max-width:900px){.sidebar-account{display:flex;align-items:center;gap:12px;margin-top:0;padding:0 8px;border-top:none;min-width:230px}.sidebar-account .account-email{margin-bottom:0;max-width:150px}.sidebar-account .btn-outline{width:auto}}
+
 </style>
 </head>
 <body>
 
+<div id="auth-gate" class="auth-gate" role="main" aria-labelledby="auth-title">
+  <div class="auth-card">
+    <div class="auth-logo" id="auth-title">Praddo <span>Painel</span></div>
+    <div class="auth-subtitle">Controle financeiro e operacional da loja. Entre com o e-mail e a senha da conta autorizada.</div>
+    <form id="auth-form" onsubmit="entrarPainel(event)" autocomplete="on">
+      <div class="auth-field">
+        <label for="auth-email">E-mail</label>
+        <input id="auth-email" name="email" type="email" autocomplete="username" required maxlength="254" placeholder="seu@email.com">
+      </div>
+      <div class="auth-field">
+        <label for="auth-password">Senha</label>
+        <input id="auth-password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button id="btn-entrar" class="btn auth-btn" type="submit">Entrar no painel</button>
+      <div id="auth-message" class="auth-message" role="status" aria-live="polite"></div>
+    </form>
+    <div class="auth-foot">Acesso privado. O cadastro público de novas contas não é disponibilizado nesta tela; somente a conta autorizada pode consultar e alterar os dados do painel.</div>
+  </div>
+</div>
+
+<div id="app-shell" style="display:none;flex:1;min-height:100vh">
 <div class="sidebar">
   <div class="brand">Praddo <span>Painel</span></div>
   <div class="brand-sub">Controle da loja</div>
@@ -121,6 +162,10 @@
   <div class="nav-item" data-page="contas"><span class="nav-icon">▥</span>Contas a pagar</div>
   <div class="nav-item" data-page="impostos"><span class="nav-icon">▧</span>Impostos MEI</div>
   <div class="nav-item" data-page="embaixadoras"><span class="nav-icon">★</span>Embaixadoras</div>
+  <div class="sidebar-account">
+    <div id="auth-user-email" class="account-email"></div>
+    <button type="button" class="btn-outline" id="btn-sair">Sair do painel</button>
+  </div>
 </div>
 
 <div class="main">
@@ -785,6 +830,7 @@
 </div>
 <datalist id="lista-fornecedores-nomes"></datalist>
 <datalist id="lista-clientes-nomes"></datalist>
+</div><!-- /#app-shell -->
 
 <script>
 let lancamentos = [];
@@ -795,7 +841,107 @@ let fretePadrao = 2.00;
 // ===== CONEXÃO COM SUPABASE =====
 const SUPABASE_URL = 'https://fulggjkqpxuyvooqunyb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_85UlbzC-1aMpaLjGpE-39A_4nCG7O-a';
-const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const AUTHORIZED_USER_ID = '3375e0a8-77f8-4c03-96c6-307c7e852e1b';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+
+let painelDadosInicializados = false;
+
+function mostrarLogin(mensagem = '') {
+  const gate = document.getElementById('auth-gate');
+  const shell = document.getElementById('app-shell');
+  if (gate) gate.style.display = 'flex';
+  if (shell) shell.style.display = 'none';
+  const msg = document.getElementById('auth-message');
+  if (msg) msg.textContent = mensagem;
+  const password = document.getElementById('auth-password');
+  if (password) password.value = '';
+}
+
+async function abrirPainelAutorizado(session) {
+  const user = session && session.user;
+  if (!user) {
+    mostrarLogin();
+    return false;
+  }
+
+  if (user.id !== AUTHORIZED_USER_ID) {
+    await sbClient.auth.signOut();
+    mostrarLogin('Esta conta não está autorizada a acessar o painel Praddo.');
+    return false;
+  }
+
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
+  document.getElementById('auth-user-email').textContent = user.email || 'Conta autorizada';
+  document.getElementById('auth-message').textContent = '';
+
+  if (!painelDadosInicializados) {
+    painelDadosInicializados = true;
+    await carregarDados();
+  }
+  return true;
+}
+
+async function entrarPainel(event) {
+  event.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const button = document.getElementById('btn-entrar');
+  const msg = document.getElementById('auth-message');
+
+  if (!email || !password) {
+    msg.textContent = 'Informe seu e-mail e sua senha.';
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Verificando acesso...';
+  msg.textContent = '';
+
+  try {
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      msg.textContent = 'Não foi possível entrar. Confira o e-mail e a senha da conta autorizada.';
+      return;
+    }
+    await abrirPainelAutorizado(data.session);
+  } catch (error) {
+    msg.textContent = 'Não foi possível validar o acesso agora. Tente novamente.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Entrar no painel';
+  }
+}
+
+async function sairPainel() {
+  const { error } = await sbClient.auth.signOut();
+  if (error) mostrarLogin('Não foi possível encerrar a sessão. Atualize a página e tente novamente.');
+}
+
+sbClient.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') {
+    painelDadosInicializados = false;
+    mostrarLogin();
+  }
+});
+
+async function inicializarAutenticacao() {
+  mostrarLogin();
+  const { data, error } = await sbClient.auth.getSession();
+  if (error) {
+    mostrarLogin('Não foi possível verificar a sessão. Atualize a página e tente novamente.');
+    return;
+  }
+  if (data.session) {
+    await abrirPainelAutorizado(data.session);
+  } else {
+    mostrarLogin();
+  }
+}
+
+document.getElementById('btn-sair').addEventListener('click', sairPainel);
 
 window.storage = {
   async get(key){
@@ -3454,7 +3600,7 @@ document.getElementById('busca-fluxo')?.addEventListener('input', renderFluxo);
 document.getElementById('busca-pecas')?.addEventListener('input', renderPecas);
 document.getElementById('busca-clientes')?.addEventListener('input', renderClientes);
 
-carregarDados();
+inicializarAutenticacao();
 </script>
 
 </body>

@@ -1494,6 +1494,7 @@ function renderTudo(){
   renderFornecedores();
   renderFechamentos();
   preencherSaldoInicialSugerido();
+  atualizarPreviewFechamento();
   renderClientes();
   renderContasPagar();
   renderContasReceber();
@@ -3089,20 +3090,25 @@ function atualizarPreviewFechamento(){
   }
   const saldoInicial = getMoedaValue(document.getElementById('fx-saldoinicial'));
   const {entradas,saidas,vendas,entradasInter,saidasInter,contaInterNome}=totaisPeriodo(inicio,fim);
-  const saldoInterCalculado=saldoInicial+entradasInter-saidasInter;
+  const porquinhoTransferencia=getMoedaValue(document.getElementById('fx-porquinho-transferencia'));
+  const reservaDeposito=getMoedaValue(document.getElementById('fx-reserva-deposito'));
+  const proLaboreReal=getMoedaValue(document.getElementById('fx-prolabore-real'));
+  const transferenciasInternas=porquinhoTransferencia+reservaDeposito+proLaboreReal;
+  const saldoInterCalculado=saldoInicial+entradasInter-saidasInter-transferenciasInternas;
   preview.innerHTML='<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">'
     +'<div>Vendas registradas: <strong class="val-entrada">'+fmtMoeda(vendas)+'</strong></div>'
     +'<div>Entradas totais (todas as contas): <strong class="val-entrada">'+fmtMoeda(entradas)+'</strong></div>'
     +'<div>Saídas totais (todas as contas): <strong class="val-saida">'+fmtMoeda(saidas)+'</strong></div>'
     +'<div>Entradas vinculadas à conta '+(contaInterNome||'Inter (não identificada)')+': <strong class="val-entrada">'+fmtMoeda(entradasInter)+'</strong></div>'
-    +'<div>Saídas vinculadas à conta '+(contaInterNome||'Inter (não identificada)')+': <strong class="val-saida">'+fmtMoeda(saidasInter)+'</strong></div>'
-    +'<div>Saldo projetado — Inter (somente lançamentos vinculados): <strong>'+fmtMoeda(saldoInterCalculado)+'</strong></div>'
+    +'<div>Saídas comerciais vinculadas à conta '+(contaInterNome||'Inter (não identificada)')+': <strong class="val-saida">'+fmtMoeda(saidasInter)+'</strong></div>'
+    +'<div>Transferências/retirada informadas: <strong>'+fmtMoeda(transferenciasInternas)+'</strong></div>'
+    +'<div>Saldo projetado — Inter: <strong>'+fmtMoeda(saldoInterCalculado)+'</strong></div>'
     +'<div>Referência de pró-labore (10% das vendas): <strong>'+fmtMoeda(vendas*0.10)+'</strong></div>'
     +'<div>Referência de reserva (5% das vendas): <strong>'+fmtMoeda(vendas*0.05)+'</strong></div>'
-    +'</div><div style="font-size:11px;color:var(--texto-sec);margin-top:8px">Lançamentos sem conta vinculada não entram na projeção do Inter. Os percentuais são referências; o fechamento guarda os valores realmente transferidos ou retirados que você informar.</div>';
+    +'</div><div style="font-size:11px;color:var(--texto-sec);margin-top:8px">A projeção desconta do Inter apenas as movimentações vinculadas à conta e os valores de Porquinho, reserva e pró-labore informados nesta tela. Movimentações sem conta vinculada ficam fora da projeção. Os percentuais são referências; os valores reais são os que você preencher.</div>';
 }
 
-['fx-inicio','fx-fim','fx-saldoinicial'].forEach(id=>{
+['fx-inicio','fx-fim','fx-saldoinicial','fx-porquinho-transferencia','fx-reserva-deposito','fx-prolabore-real'].forEach(id=>{
   document.getElementById(id)?.addEventListener('input', atualizarPreviewFechamento);
 });
 
@@ -3123,10 +3129,11 @@ document.getElementById('btn-add-fx')?.addEventListener('click', async ()=>{
   if(document.getElementById('fx-saldoinicial').value.trim()===''){err.textContent='Informe o saldo inicial real da conta corrente Inter.';err.style.display='block';return;}
   err.style.display='none';
   const {entradas,saidas,vendas,entradasInter,saidasInter,contaInterNome}=totaisPeriodo(inicio,fim);
-  const saldoCalculado=saldoInicial+entradasInter-saidasInter;
   const fluxoLiquido=entradas-saidas;
+  const movimentacoesInternas=(porquinhoTransferencia||0)+(reservaDeposito||0)+(proLaboreReal||0);
+  const saldoCalculado=saldoInicial+entradasInter-saidasInter-movimentacoesInternas;
   const fechamento={id:Date.now(),inicio,fim,saldoInicial,entradas,saidas,vendas,saldoCalculado,fluxoLiquido,
-    entradasInter,saidasInter,contaInterNome,conferido,porquinhoInicial,porquinhoTransferencia,porquinhoFinal,
+    entradasInter,saidasInter,movimentacoesInternas,contaInterNome,conferido,porquinhoInicial,porquinhoTransferencia,porquinhoFinal,
     reservaDeposito,reservaTotal,proLaboreReal,obs};
   fechamentos.push(fechamento);
   if(!(await salvarFechamentos())){
@@ -3156,7 +3163,8 @@ function renderFechamentos(){
       +kpi('Entradas',money(f.entradas),'positivo')
       +kpi('Saídas',money(f.saidas),'negativo')
       +kpi('Entradas ligadas à conta Inter',money(f.entradasInter),'positivo')
-      +kpi('Saídas ligadas à conta Inter',money(f.saidasInter),'negativo')
+      +kpi('Saídas comerciais ligadas à conta Inter',money(f.saidasInter),'negativo')
+      +kpi('Transferências/retirada informadas',money(f.movimentacoesInternas))
       +kpi('Saldo projetado — Inter',money(f.saldoCalculado))
       +kpi('Saldo real final — Inter',money(f.conferido))
       +kpi('Diferença — Inter',temConferido?money(diferenca):'—',temConferido?(diferenca===0?'':diferenca>0?'positivo':'negativo'):'')

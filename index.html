@@ -431,14 +431,6 @@
       </div>
     </div>
 
-    <div class="card" id="pc-catalogo-import-info" style="border-left:3px solid var(--oliva)">
-      <div class="card-title">Catálogo da Nuvemshop</div>
-      <div id="pc-catalogo-summary" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
-        <span class="tag">Carregando catálogo...</span>
-      </div>
-      <div style="font-size:12px;color:var(--texto-sec);line-height:1.6">Os produtos sincronizados são exibidos aqui para consulta. Preços, promoções, estoque e variações têm como fonte a Nuvemshop; alterações comerciais devem ser feitas na loja e depois sincronizadas no catálogo.</div>
-    </div>
-
     <div class="card" style="border-style:dashed">
       <div class="card-title" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="toggleCardColapsavel('sim')">
         Simulação rápida (sem salvar)
@@ -543,9 +535,22 @@
       <button class="btn-outline" onclick="imprimirTodasEtiquetas()">🏷 Imprimir todas as etiquetas</button>
     </div>
 
-    <input type="text" id="busca-pecas" placeholder="Buscar por nome ou SKU..." style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:8px;font-size:13px;margin-bottom:16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="filtros-produtos-catalogo">
+      <button type="button" class="btn" id="btn-produtos-ativos" onclick="filtrarCatalogoProdutos('ativos')">Produtos ativos</button>
+      <button type="button" class="btn-outline" id="btn-produtos-descontinuados" onclick="filtrarCatalogoProdutos('descontinuados')">Descontinuados</button>
+    </div>
+    <div style="font-size:12px;color:var(--texto-sec);line-height:1.6;margin-bottom:10px" id="texto-filtro-produtos">Exibindo produtos ativos no painel. Descontinuar um produto o arquiva aqui sem apagar seu histórico.</div>
+    <input type="text" id="busca-pecas" oninput="renderPecas()" placeholder="Buscar por nome ou SKU..." style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:8px;font-size:13px;margin-bottom:16px">
 
     <div id="lista-pecas"></div>
+
+    <div class="card" id="pc-catalogo-import-info" style="border-left:3px solid var(--oliva);margin-top:24px">
+      <div class="card-title">Resumo do catálogo da Nuvemshop</div>
+      <div id="pc-catalogo-summary" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+        <span class="tag">Carregando catálogo...</span>
+      </div>
+      <div style="font-size:12px;color:var(--texto-sec);line-height:1.6">Este resumo fica no final da página. A lista acima mostra apenas os produtos ativos no painel ou os que foram arquivados na aba Descontinuados. Descontinuar aqui não remove nem despublica automaticamente o produto na Nuvemshop; se ele ainda estiver publicado na loja, continuará à venda até ser desativado lá.</div>
+    </div>
   </div>
 
   <!-- PÁGINA FORNECEDORES -->
@@ -1010,6 +1015,7 @@ function showToastSafe(msg){
 
 let taxasPagamento = [];
 let pecas = [];
+let produtoCatalogoFiltro = 'ativos';
 let fornecedores = [];
 let fechamentos = [];
 let clientes = [];
@@ -1096,13 +1102,14 @@ function showToast(msg){
 }
 
 // ===== CONFIRMAÇÃO DE EXCLUSÃO =====
-function confirmarExclusao(mensagem, callback){
+function confirmarExclusao(mensagem, callback, textoAcao='Excluir'){
   const modal = document.getElementById('modal-confirmar');
-  document.getElementById('modal-confirmar-texto').textContent = mensagem || 'Tem certeza que deseja excluir?';
+  document.getElementById('modal-confirmar-texto').textContent = mensagem || 'Tem certeza que deseja continuar?';
   modal.style.display = 'flex';
   const btnSim = document.getElementById('modal-confirmar-sim');
   const btnNao = document.getElementById('modal-confirmar-nao');
-  const limpar = ()=>{ modal.style.display='none'; btnSim.onclick=null; btnNao.onclick=null; };
+  const limpar = ()=>{ modal.style.display='none'; btnSim.onclick=null; btnNao.onclick=null; btnSim.textContent='Excluir'; };
+  btnSim.textContent = textoAcao;
   btnSim.onclick = ()=>{ limpar(); callback(); };
   btnNao.onclick = ()=>{ limpar(); };
 }
@@ -2367,10 +2374,12 @@ function renderProdutoNuvemshop(p){
       +'</div>'
       +'<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'
         +'<div style="text-align:right"><div style="font-size:15px;font-weight:600;color:var(--oliva-escuro)">'+escaparHtml(precoPrincipal)+'</div>'+faixas+'</div>'
-        +'<button type="button" class="btn-outline" style="padding:5px 9px;font-size:11px;white-space:nowrap" onclick="event.stopPropagation();editarProdutoNuvemshop('+p.id+')" aria-label="Editar produto">✎ Editar</button>'+'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
+        +'<button type="button" class="btn-outline" style="padding:5px 9px;font-size:11px;white-space:nowrap" onclick="event.stopPropagation();editarProdutoNuvemshop('+p.id+')" aria-label="Editar produto">✎ Editar</button>'
+        +(p.statusCatalogo === 'descontinuado' ? '<button type="button" class="btn-outline" style="padding:5px 9px;font-size:11px;white-space:nowrap" onclick="event.stopPropagation();reativarProduto('+p.id+')">↩ Reativar</button>' : '<button type="button" class="btn-outline" style="padding:5px 9px;font-size:11px;white-space:nowrap;color:var(--vermelho);border-color:var(--vermelho-bg)" onclick="event.stopPropagation();descontinuarProduto('+p.id+')">Descontinuar</button>')
+        +'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
       +'</div>'
     +'</div>'
-    +'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">'+categoryTags+'<span class="tag">'+escaparHtml(visibilidade)+'</span><span class="tag">'+escaparHtml(stockLabel)+'</span>'+(p.alteracoesLocaisPendentes?'<span class="tag" style="background:var(--amarelo-bg);color:var(--amarelo)">Alterações locais não sincronizadas</span>':'')+'</div>'
+    +'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">'+categoryTags+'<span class="tag">'+escaparHtml(visibilidade)+'</span><span class="tag">'+escaparHtml(stockLabel)+'</span>'+(p.statusCatalogo === 'descontinuado' ? '<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho)">Descontinuado no painel</span>' : '')+(p.alteracoesLocaisPendentes?'<span class="tag" style="background:var(--amarelo-bg);color:var(--amarelo)">Alterações locais não sincronizadas</span>':'')+'</div>'
     +'<div id="detalhe-peca-'+p.id+'" style="display:none;margin-top:16px">'
       +'<div style="font-size:12px;color:var(--texto-sec);line-height:1.8;margin-bottom:10px">'
         +'<div><strong>Origem:</strong> Nuvemshop · <strong>ID:</strong> '+escaparHtml(p.nuvemshopProductId||'')+'</div>'
@@ -2569,28 +2578,50 @@ window.salvarEdicaoProdutoNuvemshop = async function(){
   }
 };
 
+window.filtrarCatalogoProdutos = function(filtro){
+  produtoCatalogoFiltro = filtro === 'descontinuados' ? 'descontinuados' : 'ativos';
+  renderPecas();
+};
+
 function renderPecas(){
   const el = document.getElementById('lista-pecas');
   if(!el) return;
-  if(pecas.length===0){
-    el.innerHTML = '<div class="empty"><i>—</i>Nenhum modelo cadastrado ainda.</div>';
-    return;
-  }
   const termo = removerAcentos((document.getElementById('busca-pecas')?.value||'').toLowerCase());
   const importados = pecas.filter(p=>p.origem === 'nuvemshop');
+  const ativos = pecas.filter(p=>p.statusCatalogo !== 'descontinuado');
+  const descontinuados = pecas.filter(p=>p.statusCatalogo === 'descontinuado');
+  const btnAtivos = document.getElementById('btn-produtos-ativos');
+  const btnDescontinuados = document.getElementById('btn-produtos-descontinuados');
+  const textoFiltro = document.getElementById('texto-filtro-produtos');
+  if(btnAtivos){
+    btnAtivos.textContent = 'Produtos ativos ('+ativos.length+')';
+    btnAtivos.className = produtoCatalogoFiltro === 'ativos' ? 'btn' : 'btn-outline';
+  }
+  if(btnDescontinuados){
+    btnDescontinuados.textContent = 'Descontinuados ('+descontinuados.length+')';
+    btnDescontinuados.className = produtoCatalogoFiltro === 'descontinuados' ? 'btn' : 'btn-outline';
+  }
+  if(textoFiltro){
+    textoFiltro.textContent = produtoCatalogoFiltro === 'descontinuados'
+      ? 'Arquivo de produtos descontinuados. Os cadastros e históricos são preservados; reative um produto para devolvê-lo à lista ativa.'
+      : 'Exibindo apenas produtos ativos no painel. Descontinuar um produto o arquiva aqui sem apagar seu histórico.';
+  }
   const summary = document.getElementById('pc-catalogo-summary');
   if(summary){
     const visiveis = importados.filter(p=>p.visibilidadeNuvemshop!=='unlisted').length;
     const naoListados = importados.length-visiveis;
     const importacao = importados[0]?.nuvemshopImportadoEm;
     const dataLabel = importacao ? new Date(importacao).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '';
-    summary.innerHTML = '<span class="tag" style="background:var(--verde-ok-bg);color:var(--verde-ok)">'+importados.length+' produtos sincronizados</span>'
+    summary.innerHTML = '<span class="tag" style="background:var(--verde-ok-bg);color:var(--verde-ok)">Ativos no painel: '+ativos.length+'</span>'
+      +'<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho)">Descontinuados: '+descontinuados.length+'</span>'
+      +'<span class="tag">Produtos importados da Nuvemshop: '+importados.length+'</span>'
       +'<span class="tag">'+visiveis+' visíveis na loja</span>'
       +(naoListados?'<span class="tag">'+naoListados+' não listados</span>':'')
-      +(dataLabel?'<span style="font-size:11px;color:var(--texto-sec)">Importação: '+escaparHtml(dataLabel)+'</span>':'');
+      +(dataLabel?'<span style="font-size:11px;color:var(--texto-sec)">Última importação: '+escaparHtml(dataLabel)+'</span>':'');
   }
+  const base = produtoCatalogoFiltro === 'descontinuados' ? descontinuados : ativos;
   const pecasFiltradas = termo
-    ? pecas.filter(p=> {
+    ? base.filter(p=> {
         const searchSpace = [
           p.nome,p.sku,p.categoria,p.nuvemshopProductId,
           ...(p.tagsNuvemshop||[]), ...(p.categoriasNuvemshop||[]),
@@ -2599,12 +2630,15 @@ function renderPecas(){
         ].filter(Boolean).join(' ').toLowerCase();
         return removerAcentos(searchSpace).includes(termo);
       })
-    : pecas;
+    : base;
   if(pecasFiltradas.length===0){
-    el.innerHTML = '<div class="empty"><i>—</i>Nenhum produto encontrado para "'+document.getElementById('busca-pecas').value+'".</div>';
+    el.innerHTML = '<div class="empty"><i>—</i>'+(
+      produtoCatalogoFiltro === 'descontinuados'
+        ? 'Nenhum produto descontinuado encontrado.'
+        : (pecas.length===0 ? 'Nenhum produto cadastrado ainda.' : 'Nenhum produto ativo encontrado.')
+    )+'</div>';
     return;
-  }
-  el.innerHTML = [...pecasFiltradas].reverse().map(p=>{
+  }  el.innerHTML = [...pecasFiltradas].reverse().map(p=>{
     if(p.origem === 'nuvemshop') return renderProdutoNuvemshop(p);
     const embalagensTotal = (p.embalagens||[]).reduce((s,e)=> s+e.unit*e.qtd, 0);
     const r = calcularPrecificacao({custoProduto:p.custoProduto, custosAdd:p.custosAdd, frete:p.frete, extras:p.extras, margem:p.margem, taxasPercentual:p.taxasPercentual, embalagensTotal});
@@ -2631,7 +2665,7 @@ function renderPecas(){
         +'<div><div style="font-size:12px;color:var(--texto-sec)">'+p.categoria+(p.tamanho?' • '+p.tamanho:'')+'</div></div>'
         +'<div style="display:flex;gap:2px">'
           +'<button class="btn-icon" onclick="event.stopPropagation();editarPeca('+p.id+')" aria-label="Editar">✎</button>'
-          +'<button class="del-btn" onclick="event.stopPropagation();excluirPeca('+p.id+')" aria-label="Excluir modelo">🗑</button>'
+          +(p.statusCatalogo === 'descontinuado' ? '<button type="button" class="btn-outline" style="font-size:11px;padding:5px 8px" onclick="event.stopPropagation();reativarProduto('+p.id+')">↩ Reativar</button>' : '<button type="button" class="btn-outline" style="font-size:11px;padding:5px 8px;color:var(--vermelho);border-color:var(--vermelho-bg)" onclick="event.stopPropagation();descontinuarProduto('+p.id+')" aria-label="Descontinuar produto">Descontinuar</button>')
         +'</div>'
       +'</div>'
       +'<button class="btn-outline" onclick="abrirSeletorPosicao('+p.id+')" style="margin-bottom:12px">🏷 Imprimir etiqueta</button>'
@@ -2795,20 +2829,39 @@ window.imprimirEtiquetaNaPosicao = function(id, pos){
   abrirJanelaImpressaoEtiquetas([gerarPaginaFolha(itens)]);
 }
 
-window.excluirPeca = function(id){
-  const alvo = pecas.find(p=> p.id===id);
-  if(alvo?.origem === 'nuvemshop'){
-    showToast('Produtos importados são gerenciados pela sincronização com a Nuvemshop.');
-    return;
-  }
-  confirmarExclusao("Excluir este produto? Todo o histórico de compras dele também será perdido.", ()=>{
-  pecas = pecas.filter(p=> p.id !== id);
-  salvarPecas();
-  renderPecas();
-  showToast('Modelo excluído');
-  });
-}
+window.descontinuarProduto = function(id){
+  const alvo = pecas.find(p=>String(p.id)===String(id));
+  if(!alvo){ showToast('Não foi possível localizar esse produto.'); return; }
+  if(alvo.statusCatalogo === 'descontinuado'){ showToast('Este produto já está descontinuado.'); return; }
+  confirmarExclusao(
+    'Descontinuar este produto? Ele sairá da lista ativa, mas seu SKU, preços, custos, variações e histórico de compras serão preservados na aba Descontinuados. A ação não despublica o produto na Nuvemshop.',
+    async ()=>{
+      alvo.statusCatalogo = 'descontinuado';
+      alvo.descontinuadoEm = new Date().toISOString();
+      await salvarPecas();
+      renderPecas();
+      showToast('Produto arquivado em Descontinuados.');
+    },
+    'Descontinuar'
+  );
+};
 
+window.reativarProduto = async function(id){
+  const alvo = pecas.find(p=>String(p.id)===String(id));
+  if(!alvo){ showToast('Não foi possível localizar esse produto.'); return; }
+  if(alvo.statusCatalogo !== 'descontinuado'){ showToast('Este produto já está ativo.'); return; }
+  alvo.statusCatalogo = 'ativo';
+  alvo.reativadoEm = new Date().toISOString();
+  await salvarPecas();
+  produtoCatalogoFiltro = 'ativos';
+  renderPecas();
+  showToast('Produto reativado e devolvido à lista ativa.');
+};
+
+// Compatibilidade com botões antigos: não apaga mais o histórico.
+window.excluirPeca = function(id){
+  window.descontinuarProduto(id);
+};
 // ===== FORNECEDORES =====
 
 let editandoFornecedorId = null;

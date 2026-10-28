@@ -155,7 +155,8 @@
   <div class="brand-sub">Controle da loja</div>
 
   <div class="nav-item active" data-page="resumo"><span class="nav-icon">◆</span>Resumo</div>
-  <div class="nav-item" data-page="fluxo"><span class="nav-icon">⇄</span>Fluxo de caixa</div>
+  <div class="nav-item" data-page="vendas"><span class="nav-icon">＋</span>Lançamento de vendas</div>
+  <div class="nav-item" data-page="fluxo"><span class="nav-icon">⇄</span>Saídas Praddo</div>
   <div class="nav-item" data-page="fechamento"><span class="nav-icon">◈</span>Fechamento de caixa</div>
   <div class="nav-item" data-page="custos"><span class="nav-icon">▢</span>Custos da loja</div>
   <div class="nav-item" data-page="pecas"><span class="nav-icon">◇</span>Produtos cadastrados</div>
@@ -269,56 +270,80 @@
     </div>
   </div>
 
-  <!-- PÁGINA FLUXO DE CAIXA -->
+  <!-- PÁGINA LANÇAMENTO DE VENDAS -->
+  <div class="page" id="page-vendas">
+    <div class="page-header"><div>
+      <div class="page-title">Lançamento de vendas</div>
+      <div class="page-sub">Registre vendas feitas presencialmente e por canais diretos. As vendas do site continuam sendo informadas pelo relatório da Nuvemshop.</div>
+    </div></div>
+    <div class="card">
+      <div class="card-title" id="v-titulo">Nova venda</div>
+      <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="field"><label>Data da venda</label><input type="date" id="v-data"></div>
+        <div class="field"><label>Canal</label><select id="v-canal">
+          <option value="Presencial">Presencial</option><option value="WhatsApp">WhatsApp</option><option value="Instagram">Instagram</option><option value="Outra venda direta">Outra venda direta</option>
+        </select></div>
+        <div class="field"><label>Valor recebido (R$)</label><input type="text" id="v-valor" class="money-mask" placeholder="0,00"></div>
+        <div class="field"><label>Produto(s) / descrição</label><input type="text" id="v-descricao" placeholder="Ex.: brinco solitário 8 mm"></div>
+        <div class="field"><label>Forma de pagamento</label><select id="v-forma">
+          <option>Pix</option><option>Cartão de crédito</option><option>Cartão de débito</option><option>Dinheiro</option><option>Transferência</option><option>Boleto</option>
+        </select></div>
+        <div class="field"><label>Conta em que recebeu</label><select id="v-conta"><option value="">Não especificado</option></select></div>
+        <div class="field"><label>Cliente (opcional)</label><input type="text" id="v-cliente" placeholder="Nome da cliente"></div>
+        <div class="field" style="grid-column:span 2"><label>Observações (opcional)</label><input type="text" id="v-obs" placeholder="Detalhes úteis para a conferência"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="btn" id="btn-add-venda">Registrar venda</button>
+        <button type="button" class="btn-outline" id="btn-cancelar-venda" style="display:none">Cancelar edição</button>
+      </div>
+      <div class="err" id="v-err"></div>
+    </div>
+    <div class="peca-kpi-grid" style="margin-bottom:16px">
+      <div class="kpi-card"><div class="kpi-label">Vendas registradas</div><div class="kpi-value" id="vendas-total">R$ 0,00</div></div>
+      <div class="kpi-card"><div class="kpi-label">Vendas deste mês</div><div class="kpi-value" id="vendas-mes">R$ 0,00</div></div>
+      <div class="kpi-card"><div class="kpi-label">Quantidade de vendas</div><div class="kpi-value" id="vendas-qtd">0</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Histórico de vendas</div>
+      <input type="text" id="busca-vendas" placeholder="Buscar por produto, cliente ou canal..." style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:8px;font-size:13px;margin-bottom:12px">
+      <div class="table-scroll"><table id="tabela-vendas">
+        <thead><tr><th>Data</th><th>Produto(s)</th><th>Canal</th><th>Cliente</th><th>Pagamento</th><th>Conta</th><th>Valor</th><th></th></tr></thead>
+        <tbody id="tabela-vendas-body"></tbody>
+      </table><div class="empty" id="vendas-empty"><i>—</i>Nenhuma venda registrada ainda.</div></div>
+    </div>
+  </div>
+
+  <!-- PÁGINA SAÍDAS PRADDO -->
   <div class="page" id="page-fluxo">
     <div class="page-header">
       <div>
-        <div class="page-title">Fluxo de caixa</div>
-        <div class="page-sub">Lance aqui toda entrada e saída de dinheiro</div>
+        <div class="page-title">Saídas Praddo</div>
+        <div class="page-sub">Registre despesas e acompanhe os valores que saíram da loja. Vendas ficam em “Lançamento de vendas”.</div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title">Novo lançamento</div>
-      <div class="form-grid">
-        <div class="field"><label>Data</label><input type="date" id="f-data"></div>
-        <div class="field"><label>Categoria</label>
-          <select id="f-categoria">
-            <option value="">Selecione</option>
-            <optgroup label="Entradas">
-              <option>Venda site (Nuvemshop)</option>
-              <option>Venda direta/WhatsApp</option>
-              <option>Venda marketplace/TikTok Shop</option>
-              <option>Outras receitas</option>
-            </optgroup>
-            <optgroup label="Saídas">
-              <option>Fornecedor/peças</option>
-              <option>Embalagens/brindes</option>
-              <option>Marketing/tráfego pago</option>
-              <option>Taxas de gateway</option>
-              <option>Frete</option>
-              <option>Impostos (DAS-MEI)</option>
-              <option>Ferramentas/assinaturas</option>
-              <option>Retirada pró-labore</option>
-              <option>Outros</option>
-            </optgroup>
-          </select>
-        </div>
-        <div class="field"><label>Descrição</label><input type="text" id="f-descricao" placeholder="Ex: Brinco solitária 8mm"></div>
-        <div class="field"><label>Forma de pagamento</label>
-          <select id="f-forma">
-            <option>Pix</option>
-            <option>Cartão de crédito</option>
-            <option>Cartão de débito</option>
-            <option>Dinheiro</option>
-            <option>Boleto</option>
-            <option>Transferência</option>
-          </select>
-        </div>
-        <div class="field"><label>Conta</label><select id="f-conta"><option value="">Não especificado</option></select></div>
-        <div class="field"><label>Entrada (R$)</label><input type="text" step="0.01" id="f-entrada" class="money-mask" placeholder="0,00"></div>
-        <div class="field"><label>Saída (R$)</label><input type="text" step="0.01" id="f-saida" class="money-mask" placeholder="0,00"></div>
-        <button class="btn" id="btn-add">Adicionar</button>
+      <div class="card-title" id="f-titulo">Nova saída financeira</div>
+      <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="field"><label>Data do pagamento</label><input type="date" id="f-data"></div>
+        <div class="field"><label>Categoria</label><select id="f-categoria">
+          <option value="">Selecione</option><option>Mercadorias</option><option>Fornecedor/peças</option>
+          <option>Papelaria e embalagens</option><option>Embalagens/brindes</option><option>MEI</option><option>Impostos (DAS-MEI)</option>
+          <option>Plano Nuvemshop</option><option>Ferramentas/assinaturas</option><option>Marketing/tráfego pago</option>
+          <option>Taxas de pagamento</option><option>Taxas de gateway</option><option>Frete</option><option>Pró-labore</option><option>Outros</option>
+        </select></div>
+        <div class="field"><label>Valor da saída (R$)</label><input type="text" id="f-saida" class="money-mask" placeholder="0,00"></div>
+        <div class="field"><label>Fornecedor</label><input type="text" id="f-fornecedor" list="lista-fornecedores-nomes" placeholder="Quem recebeu o pagamento"></div>
+        <div class="field"><label>Descrição</label><input type="text" id="f-descricao" placeholder="Ex.: reposição de brincos"></div>
+        <div class="field"><label>Forma de pagamento</label><select id="f-forma">
+          <option>Pix</option><option>Cartão de crédito</option><option>Cartão de débito</option><option>Transferência</option><option>Boleto</option><option>Dinheiro</option><option>Débito automático</option>
+        </select></div>
+        <div class="field"><label>Conta de saída</label><select id="f-conta"><option value="">Não especificado</option></select></div>
+        <div class="field" style="grid-column:span 2"><label>Observações (opcional)</label><input type="text" id="f-obs" placeholder="Detalhes adicionais"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="btn" id="btn-add">Registrar saída</button>
+        <button type="button" class="btn-outline" id="btn-cancelar-saida" style="display:none">Cancelar edição</button>
       </div>
       <div class="err" id="form-err"></div>
     </div>
@@ -329,11 +354,11 @@
       <div class="table-scroll">
         <table id="tabela-fluxo">
           <thead>
-            <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Forma</th><th>Conta</th><th>Entrada</th><th>Saída</th><th>Saldo</th><th></th></tr>
+            <tr><th>Data</th><th>Categoria</th><th>Fornecedor</th><th>Descrição</th><th>Forma</th><th>Conta</th><th>Saída</th><th>Saldo</th><th></th></tr>
           </thead>
           <tbody id="tabela-fluxo-body"></tbody>
         </table>
-        <div class="empty" id="fluxo-empty"><i>—</i>Nenhum lançamento ainda.</div>
+        <div class="empty" id="fluxo-empty"><i>—</i>Nenhuma saída registrada ainda.</div>
       </div>
     </div>
   </div>
@@ -1184,10 +1209,20 @@ function aplicarMascarasNovas(){
 
 async function carregarDados(){
   try{
-    const r = await window.storage.get('fluxo_caixa_lancamentos');
-    lancamentos = r ? JSON.parse(r.value) : [];
+    const {data,error}=await sbClient.from('lancamentos_financeiros').select('*').is('deleted_at',null).order('data',{ascending:false});
+    if(error) throw error;
+    lancamentos=(data||[]).map(r=>({
+      id:Number(r.id),data:r.data,tipo:r.tipo,categoria:r.categoria,descricao:r.descricao,
+      forma:r.forma,contaId:r.conta_id===null?null:Number(r.conta_id),contaNome:r.conta_nome||'',
+      entrada:Number(r.entrada)||0,saida:Number(r.saida)||0,
+      canal:r.canal||(String(r.categoria||'').toLowerCase().includes('whatsapp')?'WhatsApp':(String(r.categoria||'').toLowerCase().includes('presencial')?'Presencial':'')),
+      cliente:r.cliente||'',fornecedor:r.fornecedor||'',observacoes:r.observacoes||'',origem:r.origem||'painel',
+      idempotencyKey:r.idempotency_key||null
+    }));
   }catch(e){
-    lancamentos = [];
+    console.error('Falha ao carregar lancamentos_financeiros:',e);
+    showToastSafe('Não foi possível sincronizar a base financeira. Atualize a página e tente novamente.');
+    lancamentos=[];
   }
   try{
     const r2 = await window.storage.get('custos_loja_variaveis');
@@ -1290,12 +1325,31 @@ async function carregarDados(){
   renderTudo();
 }
 
-async function salvarDados(){
-  try{
-    await window.storage.set('fluxo_caixa_lancamentos', JSON.stringify(lancamentos));
-  }catch(e){
-    showToast('Erro ao salvar. Tente novamente.');
+async function salvarDados(lancamento){
+  if(!lancamento)throw new Error('O lançamento não foi informado para salvar.');
+  const row={
+    user_id:AUTHORIZED_USER_ID,data:lancamento.data,
+    tipo:lancamento.tipo||((Number(lancamento.saida)||0)>0?'saida':(String(lancamento.categoria||'').toLowerCase().startsWith('venda')?'venda':'receita')),
+    categoria:lancamento.categoria||'Outros',descricao:lancamento.descricao||'Sem descrição',
+    forma:lancamento.forma||null,conta_id:lancamento.contaId?Number(lancamento.contaId):null,
+    conta_nome:(contasBancarias.find(c=>Number(c.id)===Number(lancamento.contaId))||{}).nome||lancamento.contaNome||null,
+    entrada:Number(lancamento.entrada)||0,saida:Number(lancamento.saida)||0,canal:lancamento.canal||null,
+    cliente:lancamento.cliente||null,fornecedor:lancamento.fornecedor||null,observacoes:lancamento.observacoes||null,
+    origem:lancamento.origem||'painel',idempotency_key:lancamento.idempotencyKey||null
+  };
+  let query;
+  if(lancamento.id){
+    row.id=Number(lancamento.id);
+    query=sbClient.from('lancamentos_financeiros').upsert(row,{onConflict:'id'}).select('id').single();
+  }else{
+    row.idempotency_key=lancamento.idempotencyKey||(lancamento.idempotencyKey=crypto.randomUUID());
+    query=sbClient.from('lancamentos_financeiros').upsert(row,{onConflict:'user_id,idempotency_key'}).select('id').single();
   }
+  const {data,error}=await query;
+  if(error)throw error;
+  lancamento.id=Number(data.id);
+  lancamento.idempotencyKey=row.idempotency_key||null;
+  return lancamento.id;
 }
 
 async function salvarCustosVariaveis(){
@@ -1420,6 +1474,7 @@ async function salvarFretePadrao(){
 
 function renderTudo(){
   renderResumo();
+  renderVendas();
   renderFluxo();
   renderCustosVariaveis();
   renderCustosFixos();
@@ -1668,54 +1723,68 @@ document.getElementById('btn-gastos-total')?.addEventListener('click', ()=>{
   renderChartGastos();
 });
 
-function renderFluxo(){
-  const selectConta = document.getElementById('f-conta');
+function renderVendas(){
+  const selectConta=document.getElementById('v-conta');
   if(selectConta){
-    const atual = selectConta.value;
-    selectConta.innerHTML = '<option value="">Não especificado</option>' + contasBancarias.map(c=> '<option value="'+c.id+'">'+c.nome+'</option>').join('');
-    selectConta.value = atual;
+    const atual=selectConta.value;
+    selectConta.innerHTML='<option value="">Não especificado</option>'+contasBancarias.map(c=>'<option value="'+c.id+'">'+c.nome+'</option>').join('');
+    selectConta.value=atual;
   }
+  const vendas=lancamentos.filter(l=>l.tipo==='venda'&&Number(l.entrada)>0);
+  const hoje=new Date();
+  document.getElementById('vendas-total').textContent=fmtMoeda(vendas.reduce((s,l)=>s+(Number(l.entrada)||0),0));
+  document.getElementById('vendas-mes').textContent=fmtMoeda(vendas.filter(l=>{
+    const d=new Date(l.data+'T00:00:00');return d.getMonth()===hoje.getMonth()&&d.getFullYear()===hoje.getFullYear();
+  }).reduce((s,l)=>s+(Number(l.entrada)||0),0));
+  document.getElementById('vendas-qtd').textContent=String(vendas.length);
+  const termo=removerAcentos((document.getElementById('busca-vendas')?.value||'').toLowerCase());
+  const rows=[...vendas].sort((a,b)=>b.data.localeCompare(a.data)||Number(b.id)-Number(a.id))
+    .filter(l=>!termo||[l.descricao,l.cliente,l.canal,l.forma].some(v=>removerAcentos((v||'').toLowerCase()).includes(termo)));
+  const table=document.getElementById('tabela-vendas'),empty=document.getElementById('vendas-empty');
+  if(!rows.length){table.style.display='none';empty.style.display='block';empty.innerHTML=termo?'<i>—</i>Nenhuma venda encontrada.':'<i>—</i>Nenhuma venda registrada ainda.';return;}
+  table.style.display='table';empty.style.display='none';
+  document.getElementById('tabela-vendas-body').innerHTML=rows.map(l=>{
+    const conta=contasBancarias.find(c=>Number(c.id)===Number(l.contaId));
+    const valor=fmtMoeda(l.entrada||0);
+    return '<tr><td>'+fmtData(l.data)+'</td><td title="'+(l.observacoes||'')+'">'+(l.descricao||'—')+'</td>'
+      +'<td><span class="tag">'+(l.canal||l.categoria||'—')+'</span></td><td>'+(l.cliente||'—')+'</td>'
+      +'<td>'+(l.forma||'—')+'</td><td>'+(conta?conta.nome:(l.contaNome||'—'))+'</td>'
+      +'<td>'+(valoresOcultos?'<span class="hidden-val">'+valor+'</span>':valor)+'</td>'
+      +'<td><button class="btn-icon" onclick="editarVenda('+l.id+')" aria-label="Editar venda">✎</button><button class="del-btn" onclick="excluirLancamento('+l.id+')" aria-label="Excluir venda">🗑</button></td></tr>';
+  }).join('');
+}
 
-  const ordenado = [...lancamentos].sort((a,b)=> a.data.localeCompare(b.data) || (a.id-b.id));
-  let saldo = 0;
-  const linhas = ordenado.map(l=>{
-    saldo += (l.entrada||0) - (l.saida||0);
-    return {...l, saldo};
-  }).reverse();
-
-  const body = document.getElementById('tabela-fluxo-body');
-  const empty = document.getElementById('fluxo-empty');
-  const tabela = document.getElementById('tabela-fluxo');
-
-  const termo = removerAcentos((document.getElementById('busca-fluxo')?.value||'').toLowerCase());
-  const linhasFiltradas = termo
-    ? linhas.filter(l=> removerAcentos((l.descricao||'').toLowerCase()).includes(termo) || removerAcentos((l.categoria||'').toLowerCase()).includes(termo))
-    : linhas;
-
+function renderFluxo(){
+  const selectConta=document.getElementById('f-conta');
+  if(selectConta){
+    const atual=selectConta.value;
+    selectConta.innerHTML='<option value="">Não especificado</option>'+contasBancarias.map(c=>'<option value="'+c.id+'">'+c.nome+'</option>').join('');
+    selectConta.value=atual;
+  }
+  const ordenado=[...lancamentos].sort((a,b)=>a.data.localeCompare(b.data)||(a.id-b.id));
+  let saldo=0;
+  const linhas=ordenado.map(l=>{saldo+=(l.entrada||0)-(l.saida||0);return {...l,saldo};})
+    .reverse().filter(l=>(l.saida||0)>0);
+  const body=document.getElementById('tabela-fluxo-body');
+  const empty=document.getElementById('fluxo-empty');
+  const tabela=document.getElementById('tabela-fluxo');
+  const termo=removerAcentos((document.getElementById('busca-fluxo')?.value||'').toLowerCase());
+  const linhasFiltradas=termo?linhas.filter(l=>[l.descricao,l.categoria,l.fornecedor,l.observacoes].some(v=>removerAcentos((v||'').toLowerCase()).includes(termo))):linhas;
   if(linhasFiltradas.length===0){
-    tabela.style.display='none';
-    empty.style.display='block';
-    empty.innerHTML = termo ? '<i>—</i>Nenhum lançamento encontrado para "'+document.getElementById('busca-fluxo').value+'".' : '<i>—</i>Nenhum lançamento ainda.';
+    tabela.style.display='none';empty.style.display='block';
+    empty.innerHTML=termo?'<i>—</i>Nenhuma saída encontrada.':'<i>—</i>Nenhuma saída registrada ainda.';
     return;
   }
-  tabela.style.display='table';
-  empty.style.display='none';
-
-  body.innerHTML = linhasFiltradas.map(l=>{
-    const entradaTxt = l.entrada ? '<span class="val-entrada">'+fmtMoeda(l.entrada)+'</span>' : '—';
-    const saidaTxt = l.saida ? '<span class="val-saida">'+fmtMoeda(l.saida)+'</span>' : '—';
-    const conta = contasBancarias.find(c=> c.id===l.contaId);
-    return '<tr>'
-      +'<td>'+fmtData(l.data)+'</td>'
-      +'<td><span class="tag">'+l.categoria+'</span></td>'
-      +'<td>'+l.descricao+'</td>'
-      +'<td>'+l.forma+'</td>'
-      +'<td>'+(conta?conta.nome:'—')+'</td>'
-      +'<td>'+(valoresOcultos?'<span class="hidden-val">'+entradaTxt+'</span>':entradaTxt)+'</td>'
+  tabela.style.display='table';empty.style.display='none';
+  body.innerHTML=linhasFiltradas.map(l=>{
+    const saidaTxt='<span class="val-saida">'+fmtMoeda(l.saida||0)+'</span>';
+    const conta=contasBancarias.find(c=>Number(c.id)===Number(l.contaId));
+    return '<tr><td>'+fmtData(l.data)+'</td><td><span class="tag">'+l.categoria+'</span></td>'
+      +'<td>'+(l.fornecedor||'—')+'</td><td title="'+(l.observacoes||'')+'">'+l.descricao+'</td>'
+      +'<td>'+(l.forma||'—')+'</td><td>'+(conta?conta.nome:(l.contaNome||'—'))+'</td>'
       +'<td>'+(valoresOcultos?'<span class="hidden-val">'+saidaTxt+'</span>':saidaTxt)+'</td>'
       +'<td class="saldo-col">'+(valoresOcultos?'<span class="hidden-val">'+fmtMoeda(l.saldo)+'</span>':fmtMoeda(l.saldo))+'</td>'
-      +'<td><button class="btn-icon" onclick="editarLancamento('+l.id+')" aria-label="Editar">✎</button><button class="del-btn" onclick="excluirLancamento('+l.id+')" aria-label="Excluir">🗑</button></td>'
-      +'</tr>';
+      +'<td><button class="btn-icon" onclick="editarLancamento('+l.id+')" aria-label="Editar">✎</button><button class="del-btn" onclick="excluirLancamento('+l.id+')" aria-label="Excluir">🗑</button></td></tr>';
   }).join('');
 }
 
@@ -4033,103 +4102,126 @@ window.excluirEmbaixadora = function(id){
   });
 }
 
-window.excluirLancamento = function(id){
-  confirmarExclusao("Excluir este lançamento? O saldo da conta vinculada será revertido.", ()=>{
-  const l = lancamentos.find(l=> l.id === id);
-  if(l && l.contaId){
-    const conta = contasBancarias.find(c=> c.id===l.contaId);
-    if(conta){
-      conta.saldo = (conta.saldo||0) - (l.entrada||0) + (l.saida||0);
-      salvarContasBancarias();
+window.excluirLancamento=function(id){
+  confirmarExclusao("Excluir este lançamento? Ele será retirado dos totais futuros; o histórico continuará guardado na base.",async ()=>{
+    const l=lancamentos.find(x=>Number(x.id)===Number(id));if(!l)return;
+    const {error}=await sbClient.from('lancamentos_financeiros').update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',Number(id));
+    if(error){showToast('Não foi possível excluir o lançamento: '+error.message);return;}
+    if(l.contaId){
+      const c=contasBancarias.find(c=>Number(c.id)===Number(l.contaId));
+      if(c){c.saldo=(c.saldo||0)-(l.entrada||0)+(l.saida||0);await salvarContasBancarias();}
     }
-  }
-  lancamentos = lancamentos.filter(l=> l.id !== id);
-  salvarDados();
-  renderTudo();
-  showToast('Lançamento excluído');
+    lancamentos=lancamentos.filter(x=>Number(x.id)!==Number(id));renderTudo();
+    showToast('Lançamento removido dos totais; histórico preservado');
   });
 }
 
 let editandoLancamentoId = null;
 
-window.editarLancamento = function(id){
-  const l = lancamentos.find(l=> l.id===id);
-  if(!l) return;
-  editandoLancamentoId = id;
-  document.getElementById('f-data').value = l.data;
-  document.getElementById('f-categoria').value = l.categoria;
-  document.getElementById('f-descricao').value = l.descricao;
-  document.getElementById('f-forma').value = l.forma;
-  document.getElementById('f-conta').value = l.contaId || '';
-  setMoedaValue(document.getElementById('f-entrada'), l.entrada||0);
-  setMoedaValue(document.getElementById('f-saida'), l.saida||0);
-  document.getElementById('btn-add').textContent = 'Salvar edição';
+window.editarLancamento=function(id){
+  const l=lancamentos.find(x=>Number(x.id)===Number(id));if(!l||!(Number(l.saida)>0))return;
+  editandoLancamentoId=Number(id);
+  document.getElementById('f-titulo').textContent='Editar saída financeira';
+  document.getElementById('f-data').value=l.data;
+  document.getElementById('f-categoria').value=l.categoria;
+  document.getElementById('f-descricao').value=l.descricao||'';
+  document.getElementById('f-fornecedor').value=l.fornecedor||'';
+  document.getElementById('f-forma').value=l.forma||'Pix';
+  document.getElementById('f-conta').value=l.contaId||'';
+  document.getElementById('f-obs').value=l.observacoes||'';
+  setMoedaValue(document.getElementById('f-saida'),l.saida||0);
+  document.getElementById('btn-add').textContent='Salvar edição';
+  document.getElementById('btn-cancelar-saida').style.display='inline-flex';
   document.getElementById('page-fluxo').scrollIntoView({behavior:'smooth'});
 }
 
-document.getElementById('btn-add').addEventListener('click', ()=>{
-  const data = document.getElementById('f-data').value;
-  const categoria = document.getElementById('f-categoria').value;
-  const descricao = document.getElementById('f-descricao').value.trim();
-  const forma = document.getElementById('f-forma').value;
-  const contaId = parseInt(document.getElementById('f-conta').value) || null;
-  const entrada = getMoedaValue(document.getElementById('f-entrada'));
-  const saida = getMoedaValue(document.getElementById('f-saida'));
-  const err = document.getElementById('form-err');
-
-  if(!data || !categoria || !descricao || (entrada===0 && saida===0)){
-    err.textContent = 'Preencha data, categoria, descrição e um valor de entrada ou saída.';
-    err.style.display = 'block';
-    return;
-  }
-  if(entrada>0 && saida>0){
-    err.textContent = 'Preencha só entrada OU saída, não os dois.';
-    err.style.display = 'block';
-    return;
-  }
-  err.style.display = 'none';
-
-  if(editandoLancamentoId){
-    const l = lancamentos.find(l=> l.id===editandoLancamentoId);
-    // reverte o efeito antigo na conta antiga
-    if(l.contaId){
-      const contaAntiga = contasBancarias.find(c=> c.id===l.contaId);
-      if(contaAntiga) contaAntiga.saldo = (contaAntiga.saldo||0) - (l.entrada||0) + (l.saida||0);
+document.getElementById('btn-add').addEventListener('click',async ()=>{
+  const data=document.getElementById('f-data').value,categoria=document.getElementById('f-categoria').value;
+  const descricao=document.getElementById('f-descricao').value.trim(),fornecedor=document.getElementById('f-fornecedor').value.trim();
+  const forma=document.getElementById('f-forma').value,contaId=parseInt(document.getElementById('f-conta').value)||null;
+  const saida=getMoedaValue(document.getElementById('f-saida')),observacoes=document.getElementById('f-obs').value.trim();
+  const err=document.getElementById('form-err');
+  if(!data||!categoria||!descricao||saida<=0){err.textContent='Preencha a data, categoria, descrição e um valor de saída maior que zero.';err.style.display='block';return;}
+  err.style.display='none';
+  const antigo=editandoLancamentoId?lancamentos.find(l=>Number(l.id)===Number(editandoLancamentoId)):null;
+  if(editandoLancamentoId&&!antigo){showToast('Não encontrei a saída para editar.');return;}
+  if(antigo){
+    const snap={...antigo};
+    if(antigo.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(antigo.contaId));if(c)c.saldo=(c.saldo||0)+(antigo.saida||0)-(antigo.entrada||0);}
+    Object.assign(antigo,{data,tipo:'saida',categoria,descricao,fornecedor,forma,contaId,entrada:0,saida,observacoes,origem:antigo.origem||'painel'});
+    try{await salvarDados(antigo);}catch(e){
+      Object.assign(antigo,snap);
+      if(snap.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(snap.contaId));if(c)c.saldo=(c.saldo||0)+(snap.entrada||0)-(snap.saida||0);}
+      err.textContent='Não foi possível salvar a edição. '+e.message;err.style.display='block';return;
     }
-    Object.assign(l, {data, categoria, descricao, forma, contaId, entrada: entrada>0?entrada:0, saida: saida>0?saida:0});
-    // aplica o efeito novo na conta nova
-    if(contaId){
-      const contaNova = contasBancarias.find(c=> c.id===contaId);
-      if(contaNova) contaNova.saldo = (contaNova.saldo||0) + entrada - saida;
-    }
-    salvarContasBancarias();
-    editandoLancamentoId = null;
-    document.getElementById('btn-add').textContent = 'Adicionar';
-    showToast('Lançamento atualizado');
+    if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)-saida;}
+    await salvarContasBancarias();showToast('Saída atualizada');
   }else{
-    lancamentos.push({
-      id: Date.now(),
-      data, categoria, descricao, forma, contaId,
-      entrada: entrada>0?entrada:0,
-      saida: saida>0?saida:0
-    });
-
-    if(contaId){
-      const conta = contasBancarias.find(c=> c.id===contaId);
-      if(conta){
-        conta.saldo = (conta.saldo||0) + entrada - saida;
-        salvarContasBancarias();
-      }
-    }
-    showToast('Lançamento adicionado');
+    const novo={id:null,data,tipo:'saida',categoria,descricao,fornecedor,forma,contaId,entrada:0,saida,observacoes,origem:'painel',idempotencyKey:crypto.randomUUID()};
+    try{await salvarDados(novo);}catch(e){err.textContent='Não foi possível registrar a saída. '+e.message;err.style.display='block';return;}
+    lancamentos.push(novo);
+    if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)-saida;await salvarContasBancarias();}
+    showToast('Saída registrada');
   }
+  editandoLancamentoId=null;document.getElementById('f-titulo').textContent='Nova saída financeira';
+  document.getElementById('btn-add').textContent='Registrar saída';document.getElementById('btn-cancelar-saida').style.display='none';
+  document.getElementById('f-descricao').value='';document.getElementById('f-fornecedor').value='';
+  document.getElementById('f-saida').value='';document.getElementById('f-obs').value='';renderTudo();
+});
 
-  salvarDados();
-  renderTudo();
-
-  document.getElementById('f-descricao').value='';
-  document.getElementById('f-entrada').value='';
-  document.getElementById('f-saida').value='';
+let editandoVendaId=null;
+function limparFormularioVenda(){
+  editandoVendaId=null;document.getElementById('v-titulo').textContent='Nova venda';
+  document.getElementById('btn-add-venda').textContent='Registrar venda';document.getElementById('btn-cancelar-venda').style.display='none';
+  document.getElementById('v-descricao').value='';document.getElementById('v-cliente').value='';
+  document.getElementById('v-valor').value='';document.getElementById('v-obs').value='';
+}
+window.editarVenda=function(id){
+  const l=lancamentos.find(x=>Number(x.id)===Number(id)&&x.tipo==='venda');if(!l)return;
+  editandoVendaId=Number(id);document.getElementById('v-titulo').textContent='Editar venda';
+  document.getElementById('v-data').value=l.data;
+  document.getElementById('v-canal').value=l.canal||((l.categoria||'').toLowerCase().includes('whatsapp')?'WhatsApp':'Presencial');
+  document.getElementById('v-descricao').value=l.descricao||'';document.getElementById('v-cliente').value=l.cliente||'';
+  document.getElementById('v-forma').value=l.forma||'Pix';document.getElementById('v-conta').value=l.contaId||'';
+  document.getElementById('v-obs').value=l.observacoes||'';setMoedaValue(document.getElementById('v-valor'),l.entrada||0);
+  document.getElementById('btn-add-venda').textContent='Salvar edição';document.getElementById('btn-cancelar-venda').style.display='inline-flex';
+  document.getElementById('page-vendas').scrollIntoView({behavior:'smooth'});
+};
+document.getElementById('btn-cancelar-venda').addEventListener('click',limparFormularioVenda);
+document.getElementById('btn-cancelar-saida').addEventListener('click',()=>{
+  editandoLancamentoId=null;document.getElementById('f-titulo').textContent='Nova saída financeira';
+  document.getElementById('btn-add').textContent='Registrar saída';document.getElementById('btn-cancelar-saida').style.display='none';
+  document.getElementById('f-descricao').value='';document.getElementById('f-fornecedor').value='';
+  document.getElementById('f-saida').value='';document.getElementById('f-obs').value='';
+});
+document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
+  const data=document.getElementById('v-data').value,canal=document.getElementById('v-canal').value;
+  const descricao=document.getElementById('v-descricao').value.trim(),cliente=document.getElementById('v-cliente').value.trim();
+  const forma=document.getElementById('v-forma').value,contaId=parseInt(document.getElementById('v-conta').value)||null;
+  const entrada=getMoedaValue(document.getElementById('v-valor')),observacoes=document.getElementById('v-obs').value.trim();
+  const err=document.getElementById('v-err');
+  if(!data||!canal||!descricao||entrada<=0){err.textContent='Preencha a data, canal, produto/descrição e um valor recebido maior que zero.';err.style.display='block';return;}
+  err.style.display='none';
+  const antiga=editandoVendaId?lancamentos.find(l=>Number(l.id)===Number(editandoVendaId)):null;
+  if(editandoVendaId&&!antiga){showToast('Não encontrei a venda para editar.');return;}
+  if(antiga){
+    const snap={...antiga};
+    if(antiga.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(antiga.contaId));if(c)c.saldo=(c.saldo||0)-(antiga.entrada||0)+(antiga.saida||0);}
+    Object.assign(antiga,{data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,origem:antiga.origem||'painel'});
+    try{await salvarDados(antiga);}catch(e){
+      Object.assign(antiga,snap);if(snap.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(snap.contaId));if(c)c.saldo=(c.saldo||0)+(snap.entrada||0)-(snap.saida||0);}
+      err.textContent='Não foi possível salvar a edição da venda. '+e.message;err.style.display='block';return;
+    }
+    if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)+entrada;}
+    await salvarContasBancarias();showToast('Venda atualizada');
+  }else{
+    const nova={id:null,data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,origem:'painel',idempotencyKey:crypto.randomUUID()};
+    try{await salvarDados(nova);}catch(e){err.textContent='Não foi possível registrar a venda. '+e.message;err.style.display='block';return;}
+    lancamentos.push(nova);
+    if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)+entrada;await salvarContasBancarias();}
+    showToast('Venda registrada');
+  }
+  limparFormularioVenda();renderTudo();
 });
 
 document.getElementById('btn-exportar-backup')?.addEventListener('click', async ()=>{
@@ -4180,8 +4272,10 @@ document.querySelectorAll('.nav-item.disabled').forEach(item=>{
 });
 
 document.getElementById('f-data').valueAsDate = new Date();
+document.getElementById('v-data').valueAsDate = new Date();
 
 document.getElementById('busca-fluxo')?.addEventListener('input', renderFluxo);
+document.getElementById('busca-vendas')?.addEventListener('input', renderVendas);
 document.getElementById('busca-pecas')?.addEventListener('input', renderPecas);
 document.getElementById('busca-clientes')?.addEventListener('input', renderClientes);
 

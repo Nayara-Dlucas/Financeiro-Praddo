@@ -1398,9 +1398,11 @@ async function salvarFornecedores(){
 
 async function salvarFechamentos(){
   try{
-    await window.storage.set('fechamentos_caixa', JSON.stringify(fechamentos));
+    await window.storage.set('fechamentos_caixa',JSON.stringify(fechamentos));
+    return true;
   }catch(e){
-    showToast('Erro ao salvar. Tente novamente.');
+    showToast('Erro ao salvar o fechamento. Tente novamente.');
+    return false;
   }
 }
 
@@ -3115,7 +3117,11 @@ document.getElementById('btn-add-fx')?.addEventListener('click', async ()=>{
   const fechamento={id:Date.now(),inicio,fim,saldoInicial,entradas,saidas,vendas,saldoCalculado,conferido,
     porquinhoInicial,porquinhoFinal,reservaDeposito,reservaTotal,proLaboreReal,obs};
   fechamentos.push(fechamento);
-  await salvarFechamentos();
+  if(!(await salvarFechamentos())){
+    fechamentos.pop();
+    renderFechamentos();
+    return;
+  }
   renderFechamentos();
   ['fx-inicio','fx-fim','fx-saldoinicial','fx-conferido','fx-porquinho-inicial','fx-porquinho-final','fx-reserva-deposito','fx-reserva-total','fx-prolabore-real','fx-obs'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('fx-preview').innerHTML='<div style="font-size:13px;color:var(--texto-sec)">Preencha as datas pra ver a prévia do período</div>';
@@ -3151,11 +3157,15 @@ function renderFechamentos(){
 }
 
 window.excluirFechamento = function(id){
-  confirmarExclusao("Excluir este fechamento de caixa?", ()=>{
-  fechamentos = fechamentos.filter(f=> f.id !== id);
-  salvarFechamentos();
-  renderFechamentos();
-  showToast('Fechamento excluído');
+  confirmarExclusao("Excluir este fechamento de caixa?",async ()=>{
+    const anterior=fechamentos.find(f=>Number(f.id)===Number(id));
+    fechamentos=fechamentos.filter(f=>Number(f.id)!==Number(id));
+    if(await salvarFechamentos()){
+      renderFechamentos();showToast('Fechamento excluído');
+    }else{
+      if(anterior)fechamentos.push(anterior);
+      renderFechamentos();
+    }
   });
 }
 
@@ -4215,6 +4225,8 @@ document.getElementById('btn-exportar-backup')?.addEventListener('click', async 
       backup[chave] = null;
     }
   }
+  // A chave legado é mantida no backup como referência; esta é a lista financeira atual.
+  backup.lancamentos_financeiros = lancamentos;
   backup._exportadoEm = new Date().toISOString();
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);

@@ -6,6 +6,7 @@
 <title>Praddo Painel</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --graf: #1C1A17;
@@ -292,6 +293,22 @@
         <div class="field"><label>Cliente (opcional)</label><input type="text" id="v-cliente" placeholder="Nome da cliente"></div>
         <div class="field" style="grid-column:span 2"><label>Observações (opcional)</label><input type="text" id="v-obs" placeholder="Detalhes úteis para a conferência"></div>
       </div>
+      <details id="v-dados-envio" style="margin:12px 0 8px;border:1px solid var(--borda);border-radius:9px;padding:10px 12px">
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--oliva)">Dados para envio/postagem (opcionais)</summary>
+        <p style="font-size:11px;color:var(--texto-sec);margin:7px 0 10px">Preencha os dados do destinatário para imprimir a etiqueta interna. Ela não substitui a etiqueta oficial nem o código de barras/QR emitido pela transportadora.</p>
+        <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="field"><label>Telefone do destinatário</label><input type="tel" id="v-envio-telefone" placeholder="(62) 99999-9999"></div>
+          <div class="field"><label>CEP</label><input type="text" id="v-envio-cep" placeholder="00000-000" maxlength="9"></div>
+          <div class="field"><label>UF</label><input type="text" id="v-envio-uf" placeholder="GO" maxlength="2"></div>
+          <div class="field" style="grid-column:span 2"><label>Rua / avenida</label><input type="text" id="v-envio-rua" placeholder="Logradouro"></div>
+          <div class="field"><label>Número</label><input type="text" id="v-envio-numero" placeholder="Nº"></div>
+          <div class="field"><label>Complemento</label><input type="text" id="v-envio-complemento" placeholder="Apto., bloco etc."></div>
+          <div class="field"><label>Bairro</label><input type="text" id="v-envio-bairro" placeholder="Bairro"></div>
+          <div class="field"><label>Cidade</label><input type="text" id="v-envio-cidade" placeholder="Cidade"></div>
+          <div class="field"><label>Transportadora</label><select id="v-envio-transportadora"><option value="">Não informada</option><option>Nuvem Envio</option><option>Correios</option><option>Loggi</option><option>Jadlog</option><option>Motoboy</option><option>Retirada</option><option>Outra</option></select></div>
+          <div class="field" style="grid-column:span 2"><label>Código de rastreio (se já existir)</label><input type="text" id="v-envio-rastreio" placeholder="Informe somente o código fornecido pela transportadora"></div>
+        </div>
+      </details>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
         <button type="button" class="btn" id="btn-add-venda">Registrar venda</button>
         <button type="button" class="btn-outline" id="btn-cancelar-venda" style="display:none">Cancelar edição</button>
@@ -1221,7 +1238,7 @@ async function carregarDados(){
       forma:r.forma,contaId:r.conta_id===null?null:Number(r.conta_id),contaNome:r.conta_nome||'',
       entrada:Number(r.entrada)||0,saida:Number(r.saida)||0,
       canal:r.canal||(String(r.categoria||'').toLowerCase().includes('whatsapp')?'WhatsApp':(String(r.categoria||'').toLowerCase().includes('presencial')?'Presencial':'')),
-      cliente:r.cliente||'',fornecedor:r.fornecedor||'',observacoes:r.observacoes||'',origem:r.origem||'painel',
+      cliente:r.cliente||'',fornecedor:r.fornecedor||'',observacoes:r.observacoes||'',entrega:(r.dados_entrega&&typeof r.dados_entrega==='object')?r.dados_entrega:{},origem:r.origem||'painel',
       idempotencyKey:r.idempotency_key||null
     }));
   }catch(e){
@@ -1340,6 +1357,7 @@ async function salvarDados(lancamento){
     conta_nome:(contasBancarias.find(c=>Number(c.id)===Number(lancamento.contaId))||{}).nome||lancamento.contaNome||null,
     entrada:Number(lancamento.entrada)||0,saida:Number(lancamento.saida)||0,canal:lancamento.canal||null,
     cliente:lancamento.cliente||null,fornecedor:lancamento.fornecedor||null,observacoes:lancamento.observacoes||null,
+    dados_entrega:(lancamento.entrega&&typeof lancamento.entrega==='object')?lancamento.entrega:{},
     origem:lancamento.origem||'painel',idempotency_key:lancamento.idempotencyKey||null
   };
   let query;
@@ -1731,6 +1749,82 @@ document.getElementById('btn-gastos-total')?.addEventListener('click', ()=>{
   renderChartGastos();
 });
 
+window.gerarPdfVenda = function(id){
+  const l=lancamentos.find(x=>Number(x.id)===Number(id)&&x.tipo==='venda');
+  if(!l){showToast('Não encontrei essa venda para gerar o PDF.');return;}
+  const JsPDF=window.jspdf&&window.jspdf.jsPDF;
+  if(typeof JsPDF!=='function'){showToast('A biblioteca de PDF não carregou. Atualize a página e tente novamente.');return;}
+  try{
+    const doc=new JsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210, H=297, meio=148.5, oliva=[92,107,74], tinta=[42,39,35], cinza=[112,108,100], claro=[245,242,233], borda=[218,215,206];
+    const e=(l.entrega&&typeof l.entrega==='object')?l.entrega:{};
+    const limpa=v=>String(v==null?'':v).trim()||'—';
+    const texto=(v,max)=>doc.splitTextToSize(limpa(v),max);
+    const nomeArquivo='Praddo_venda_'+String(l.id||'registro')+'_'+String(l.data||'').replace(/[^0-9-]/g,'')+'.pdf';
+    doc.setProperties({title:'Praddo Pratas — registro da venda '+l.id,subject:'Etiqueta interna de destino e registro de venda',author:'Praddo Pratas'});
+    doc.setTextColor(...tinta); doc.setLineWidth(0.35);
+
+    // METADE SUPERIOR: etiqueta interna de destino. Nunca simula código de rastreio.
+    doc.setFillColor(...oliva); doc.rect(0,0,W,20,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('PRADDO PRATAS',10,8.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.text('ETIQUETA INTERNA DE DESTINO',10,15);
+    doc.setTextColor(...cinza); doc.setFontSize(7);
+    doc.text('Uso interno: não substitui a etiqueta oficial, declaração de conteúdo ou código emitido pela transportadora.',10,26);
+    doc.setDrawColor(...borda); doc.line(10,30,W-10,30);
+    doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('REMETENTE',10,37);
+    doc.setTextColor(...tinta); doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    doc.text('Praddo Pratas — Goiânia/GO',10,43);
+    doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('DESTINATÁRIO',10,53);
+    doc.setTextColor(...tinta); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text(texto(l.cliente,185).slice(0,1),10,60);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text('Telefone: '+limpa(e.telefone),10,68);
+    const logradouro=[e.rua,e.numero?'nº '+e.numero:'',e.complemento].filter(v=>String(v||'').trim()).join(', ');
+    doc.text(texto('Endereço: '+(logradouro||'Não informado'),185).slice(0,2),10,76);
+    doc.text(texto('Bairro: '+limpa(e.bairro)+'   |   Cidade: '+limpa(e.cidade)+'/'+limpa(e.uf)+'   |   CEP: '+limpa(e.cep),185).slice(0,2),10,86);
+    doc.text(texto('Transportadora: '+limpa(e.transportadora),185).slice(0,1),10,96);
+    doc.setDrawColor(...borda); doc.roundedRect(10,104,190,25,2,2,'S');
+    doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('CÓDIGO DE RASTREIO / IDENTIFICAÇÃO',15,111);
+    doc.setTextColor(...tinta); doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    doc.text(texto(e.rastreio||'Preencher somente com o código oficial fornecido pela transportadora',180).slice(0,2),15,118);
+    doc.setTextColor(...cinza); doc.setFontSize(7);
+    doc.text('Venda nº '+limpa(l.id)+'  •  '+limpa(fmtData(l.data)),10,139);
+    doc.setTextColor(...oliva); doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+    doc.text('Pra quem ama o básico com personalidade',W-10,144,{align:'right'});
+
+    // Divisão central para facilitar o corte da folha A4.
+    doc.setDrawColor(...oliva); doc.setLineWidth(0.55); doc.line(7,meio,W-7,meio);
+    doc.setFillColor(...claro); doc.rect(0,meio,W,20,'F');
+    doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('PRADDO PRATAS',10,157);
+    doc.setTextColor(...tinta); doc.setFontSize(9); doc.text('REGISTRO INTERNO DA VENDA',10,164);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...tinta);
+    doc.text('Registro/pedido: '+limpa(l.id),10,176);
+    doc.text('Data: '+limpa(fmtData(l.data)),W-10,176,{align:'right'});
+    doc.text(texto('Cliente: '+limpa(l.cliente),90).slice(0,1),10,184);
+    doc.text(texto('Canal: '+limpa(l.canal||l.categoria),90).slice(0,1),108,184);
+    doc.text(texto('Pagamento: '+limpa(l.forma),90).slice(0,1),10,192);
+    const conta=contasBancarias.find(c=>Number(c.id)===Number(l.contaId));
+    doc.text(texto('Conta: '+limpa(conta?conta.nome:l.contaNome),90).slice(0,1),108,192);
+    doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('PRODUTO(S) / DESCRIÇÃO',10,202);
+    doc.setTextColor(...tinta); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(texto(l.descricao,185).slice(0,2),10,208);
+    doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('ENTREGA',10,220);
+    doc.setTextColor(...tinta); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    const resumoEndereco=logradouro ? [logradouro,e.bairro,e.cidade,e.uf,e.cep].filter(v=>String(v||'').trim()).join(', ') : 'Endereço de envio não informado no registro da venda.';
+    doc.text(texto(resumoEndereco,185).slice(0,2),10,225);
+    doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('OBSERVAÇÕES',10,235);
+    doc.setTextColor(...tinta); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.text(texto(l.observacoes,185).slice(0,2),10,240);
+    doc.setFillColor(...claro); doc.roundedRect(10,251,190,18,2,2,'F');
+    doc.setTextColor(...cinza); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text('VALOR RECEBIDO',15,258);
+    doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.text(limpa(fmtMoeda(l.entrada||0)),W-15,263,{align:'right'});
+    doc.setTextColor(...cinza); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text('Documento interno para conferência. Não substitui nota fiscal ou comprovante oficial de transporte.',10,279);
+    doc.text('Praddo Pratas',W-10,286,{align:'right'});
+    doc.save(nomeArquivo);
+  }catch(err){console.error('Erro ao gerar PDF da venda:',err);showToast('Não foi possível gerar o PDF desta venda.');}
+};
+
 function renderVendas(){
   const selectConta=document.getElementById('v-conta');
   if(selectConta){
@@ -1758,7 +1852,7 @@ function renderVendas(){
       +'<td><span class="tag">'+(l.canal||l.categoria||'—')+'</span></td><td>'+(l.cliente||'—')+'</td>'
       +'<td>'+(l.forma||'—')+'</td><td>'+(conta?conta.nome:(l.contaNome||'—'))+'</td>'
       +'<td>'+(valoresOcultos?'<span class="hidden-val">'+valor+'</span>':valor)+'</td>'
-      +'<td><button class="btn-icon" onclick="editarVenda('+l.id+')" aria-label="Editar venda">✎</button><button class="del-btn" onclick="excluirLancamento('+l.id+')" aria-label="Excluir venda">🗑</button></td></tr>';
+      +'<td><button class="btn-icon" onclick="gerarPdfVenda('+l.id+')" aria-label="Baixar PDF da venda" title="Baixar etiqueta e registro em PDF">PDF</button><button class="btn-icon" onclick="editarVenda('+l.id+')" aria-label="Editar venda">✎</button><button class="del-btn" onclick="excluirLancamento('+l.id+')" aria-label="Excluir venda">🗑</button></td></tr>';
   }).join('');
 }
 
@@ -4188,6 +4282,9 @@ function limparFormularioVenda(){
   document.getElementById('btn-add-venda').textContent='Registrar venda';document.getElementById('btn-cancelar-venda').style.display='none';
   document.getElementById('v-descricao').value='';document.getElementById('v-cliente').value='';
   document.getElementById('v-valor').value='';document.getElementById('v-obs').value='';
+  ['telefone','cep','uf','rua','numero','complemento','bairro','cidade','rastreio'].forEach(k=>{const el=document.getElementById('v-envio-'+k);if(el)el.value='';});
+  document.getElementById('v-envio-transportadora').value='';
+  document.getElementById('v-dados-envio').open=false;
 }
 window.editarVenda=function(id){
   const l=lancamentos.find(x=>Number(x.id)===Number(id)&&x.tipo==='venda');if(!l)return;
@@ -4197,6 +4294,10 @@ window.editarVenda=function(id){
   document.getElementById('v-descricao').value=l.descricao||'';document.getElementById('v-cliente').value=l.cliente||'';
   document.getElementById('v-forma').value=l.forma||'Pix';document.getElementById('v-conta').value=l.contaId||'';
   document.getElementById('v-obs').value=l.observacoes||'';setMoedaValue(document.getElementById('v-valor'),l.entrada||0);
+  const e=(l.entrega&&typeof l.entrega==='object')?l.entrega:{};
+  ['telefone','cep','uf','rua','numero','complemento','bairro','cidade','rastreio'].forEach(k=>{const el=document.getElementById('v-envio-'+k);if(el)el.value=e[k]||'';});
+  document.getElementById('v-envio-transportadora').value=e.transportadora||'';
+  document.getElementById('v-dados-envio').open=true;
   document.getElementById('btn-add-venda').textContent='Salvar edição';document.getElementById('btn-cancelar-venda').style.display='inline-flex';
   document.getElementById('page-vendas').scrollIntoView({behavior:'smooth'});
 };
@@ -4212,6 +4313,18 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
   const descricao=document.getElementById('v-descricao').value.trim(),cliente=document.getElementById('v-cliente').value.trim();
   const forma=document.getElementById('v-forma').value,contaId=parseInt(document.getElementById('v-conta').value)||null;
   const entrada=getMoedaValue(document.getElementById('v-valor')),observacoes=document.getElementById('v-obs').value.trim();
+  const entrega={
+    telefone:document.getElementById('v-envio-telefone').value.trim(),
+    cep:document.getElementById('v-envio-cep').value.trim(),
+    uf:document.getElementById('v-envio-uf').value.trim().toUpperCase(),
+    rua:document.getElementById('v-envio-rua').value.trim(),
+    numero:document.getElementById('v-envio-numero').value.trim(),
+    complemento:document.getElementById('v-envio-complemento').value.trim(),
+    bairro:document.getElementById('v-envio-bairro').value.trim(),
+    cidade:document.getElementById('v-envio-cidade').value.trim(),
+    transportadora:document.getElementById('v-envio-transportadora').value,
+    rastreio:document.getElementById('v-envio-rastreio').value.trim()
+  };
   const err=document.getElementById('v-err');
   if(!data||!canal||!descricao||entrada<=0){err.textContent='Preencha a data, canal, produto/descrição e um valor recebido maior que zero.';err.style.display='block';return;}
   err.style.display='none';
@@ -4219,26 +4332,28 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
   if(actionButton.disabled)return;
   actionButton.disabled=true;
   try{
-  const antiga=editandoVendaId?lancamentos.find(l=>Number(l.id)===Number(editandoVendaId)):null;
-  if(editandoVendaId&&!antiga){showToast('Não encontrei a venda para editar.');return;}
-  if(antiga){
-    const snap={...antiga};
-    if(antiga.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(antiga.contaId));if(c)c.saldo=(c.saldo||0)-(antiga.entrada||0)+(antiga.saida||0);}
-    Object.assign(antiga,{data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,origem:antiga.origem||'painel'});
-    try{await salvarDados(antiga);}catch(e){
-      Object.assign(antiga,snap);if(snap.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(snap.contaId));if(c)c.saldo=(c.saldo||0)+(snap.entrada||0)-(snap.saida||0);}
-      err.textContent='Não foi possível salvar a edição da venda. '+e.message;err.style.display='block';return;
+    let vendaSalva=null;
+    const antiga=editandoVendaId?lancamentos.find(l=>Number(l.id)===Number(editandoVendaId)):null;
+    if(editandoVendaId&&!antiga){showToast('Não encontrei a venda para editar.');return;}
+    if(antiga){
+      const snap={...antiga};
+      if(antiga.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(antiga.contaId));if(c)c.saldo=(c.saldo||0)-(antiga.entrada||0)+(antiga.saida||0);}
+      Object.assign(antiga,{data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,entrega,origem:antiga.origem||'painel'});
+      try{await salvarDados(antiga);}catch(e){
+        Object.assign(antiga,snap);if(snap.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(snap.contaId));if(c)c.saldo=(c.saldo||0)+(snap.entrada||0)-(snap.saida||0);}
+        err.textContent='Não foi possível salvar a edição da venda. '+e.message;err.style.display='block';return;
+      }
+      if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)+entrada;}
+      await salvarContasBancarias();vendaSalva=antiga;showToast('Venda atualizada');
+    }else{
+      const nova={id:null,data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,entrega,origem:'painel',idempotencyKey:crypto.randomUUID()};
+      try{await salvarDados(nova);}catch(e){err.textContent='Não foi possível registrar a venda. '+e.message;err.style.display='block';return;}
+      lancamentos.push(nova);
+      if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)+entrada;await salvarContasBancarias();}
+      vendaSalva=nova;showToast('Venda registrada');
     }
-    if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)+entrada;}
-    await salvarContasBancarias();showToast('Venda atualizada');
-  }else{
-    const nova={id:null,data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,origem:'painel',idempotencyKey:crypto.randomUUID()};
-    try{await salvarDados(nova);}catch(e){err.textContent='Não foi possível registrar a venda. '+e.message;err.style.display='block';return;}
-    lancamentos.push(nova);
-    if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)+entrada;await salvarContasBancarias();}
-    showToast('Venda registrada');
-  }
-  limparFormularioVenda();renderTudo();
+    if(vendaSalva&&vendaSalva.id)window.gerarPdfVenda(vendaSalva.id);
+    limparFormularioVenda();renderTudo();
   }finally{actionButton.disabled=false;}
 });
 

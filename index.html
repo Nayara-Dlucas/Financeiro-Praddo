@@ -1769,7 +1769,8 @@ window.gerarPdfVenda = function(id){
       f.fieldName=nome;
       f.value=valorCampo;
       f.defaultValue=valorCampo;
-      f.Rect=[x,y,w,h];
+      // jsPDF text APIs use a top-edge y coordinate; AcroForm Rect needs y minus field height.
+      f.Rect=[x,y-h,w,h];
       f.fontName='helvetica';
       f.fontStyle=op.fontStyle||'normal';
       f.fontSize=op.fontSize||8;

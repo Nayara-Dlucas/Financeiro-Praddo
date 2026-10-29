@@ -1818,7 +1818,8 @@ window.gerarPdfVenda = function(id){
     campo('etiqueta_bairro',e.bairro||'',bairroX,88.5,36,6,{fontSize:7.5,maxFontSize:8});
     const cidadeLabelX=bairroX+36+4;
     doc.text('Cidade/UF:',cidadeLabelX,91);
-    const cidadeX=cidadeLabelX+doc.getTextWidth('Cidade/UF:')+gapRotuloCampo;
+    // Pequena folga adicional: evita que a caixa AcroForm visualmente encoste no rótulo Cidade/UF.
+    const cidadeX=cidadeLabelX+doc.getTextWidth('Cidade/UF:')+gapRotuloCampo+1.5;
     campo('etiqueta_cidade_uf',[e.cidade,e.uf].filter(Boolean).join('/'),cidadeX,88.5,48,6,{fontSize:7.5,maxFontSize:8});
     const cepLabelX=cidadeX+48+4;
     doc.text('CEP:',cepLabelX,91);

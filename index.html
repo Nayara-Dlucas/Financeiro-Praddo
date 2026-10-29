@@ -1760,6 +1760,11 @@ window.gerarPdfVenda = function(id){
     const e=(l.entrega&&typeof l.entrega==='object')?l.entrega:{};
     const limpa=v=>String(v==null?'':v).trim()||'—';
     const texto=(v,max)=>doc.splitTextToSize(limpa(v),max);
+    const dataCompleta=iso=>{
+      if(!iso)return '';
+      const [ano,mes,dia]=String(iso).split('-');
+      return dia+'/'+mes+'/'+ano;
+    };
     // Campos AcroForm editáveis: o PDF leva os dados preenchidos, mas permite alterá-los no leitor de PDF.
     const campo=(nome,valor,x,y,w,h,op={})=>{
       const FormText=JsPDF.AcroForm&&JsPDF.AcroForm.TextField;
@@ -1769,8 +1774,8 @@ window.gerarPdfVenda = function(id){
       f.fieldName=nome;
       f.value=valorCampo;
       f.defaultValue=valorCampo;
-      // jsPDF text APIs use a top-edge y coordinate; AcroForm Rect needs y minus field height.
-      f.Rect=[x,y-h,w,h];
+      // Rect recebe o topo do campo nas coordenadas do documento; o jsPDF faz a conversão para o PDF.
+      f.Rect=[x,y,w,h];
       f.fontName='helvetica';
       f.fontStyle=op.fontStyle||'normal';
       f.fontSize=op.fontSize||8;
@@ -1820,7 +1825,7 @@ window.gerarPdfVenda = function(id){
     doc.text('Venda nº',10,139);
     campo('etiqueta_numero_venda',l.id==null?'':String(l.id),27,134.5,38,5.5,{fontSize:7,maxFontSize:8});
     doc.text('Data:',132,139);
-    campo('etiqueta_data_venda',fmtData(l.data)||'',148,134.5,52,5.5,{fontSize:7,maxFontSize:8});
+    campo('etiqueta_data_venda',dataCompleta(l.data)||'',148,134.5,52,5.5,{fontSize:7,maxFontSize:8});
     doc.setTextColor(...oliva); doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
     doc.text('Pra quem ama o básico com personalidade',W-10,144,{align:'right'});
 
@@ -1833,7 +1838,7 @@ window.gerarPdfVenda = function(id){
     doc.text('Registro/pedido:',10,176);
     campo('registro_numero_venda',l.id==null?'':String(l.id),42,171.5,42,5.5,{fontSize:8,maxFontSize:9});
     doc.text('Data:',148,176);
-    campo('registro_data_venda',fmtData(l.data)||'',163,171.5,37,5.5,{fontSize:8,maxFontSize:9});
+    campo('registro_data_venda',dataCompleta(l.data)||'',163,171.5,37,5.5,{fontSize:8,maxFontSize:9});
     doc.text('Cliente:',10,184);
     campo('registro_cliente',l.cliente||'',27,179.5,70,5.5,{fontSize:8,maxFontSize:9});
     doc.text('Canal:',108,184);
@@ -1854,9 +1859,9 @@ window.gerarPdfVenda = function(id){
     doc.setTextColor(...tinta); doc.setFont('helvetica','normal'); doc.setFontSize(8);
     campo('registro_observacoes_adicionais',l.observacoes||'',10,237,190,12,{fontSize:8,maxFontSize:9,multiline:true});
     doc.setFillColor(...claro); doc.roundedRect(10,251,190,18,2,2,'F');
-    doc.setTextColor(...cinza); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text('VALOR RECEBIDO',15,258);
+    doc.setTextColor(...cinza); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text('VALOR RECEBIDO (R$)',15,258);
     doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(15);
-    campo('registro_valor_recebido',fmtMoeda(l.entrada||0),125,255,69,9,{fontSize:13,maxFontSize:14,fontStyle:'bold'});
+    campo('registro_valor_recebido',Number(l.entrada||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),125,255,69,9,{fontSize:13,maxFontSize:14,fontStyle:'bold'});
     doc.setTextColor(...cinza); doc.setFont('helvetica','normal'); doc.setFontSize(7);
     doc.text('Documento interno para conferência. Não substitui nota fiscal ou comprovante oficial de transporte.',10,279);
     doc.text('Praddo Pratas',W-10,286,{align:'right'});

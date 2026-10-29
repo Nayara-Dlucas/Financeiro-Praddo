@@ -1758,7 +1758,7 @@ window.gerarPdfVenda = function(id){
     const doc=new JsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const W=210, H=297, meio=148.5, oliva=[92,107,74], tinta=[42,39,35], cinza=[112,108,100], claro=[245,242,233], borda=[218,215,206];
     const e=(l.entrega&&typeof l.entrega==='object')?l.entrega:{};
-    const limpa=v=>String(v==null?'':v).trim()||'—';
+    const limpa=v=>String(v==null?'':v).trim()||'-';
     const texto=(v,max)=>doc.splitTextToSize(limpa(v),max);
     const dataCompleta=iso=>{
       if(!iso)return '';
@@ -1798,8 +1798,8 @@ window.gerarPdfVenda = function(id){
     doc.setDrawColor(...borda); doc.line(10,30,W-10,30);
     doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('REMETENTE',10,35);
     campo('remetente_nome','Praddo Pratas',10,36,190,5.5,{fontSize:9.5,maxFontSize:10,fontStyle:'bold'});
-    campo('remetente_endereco','Rua dos Xavantes, s/n — Qd. K07 Lt. 08B',10,41.5,190,4.5,{fontSize:7.5,maxFontSize:8});
-    campo('remetente_cidade_cep','Setor Pampulha — CEP 74983-719 — Aparecida de Goiânia/GO',10,46,190,4.5,{fontSize:7.5,maxFontSize:8});
+    campo('remetente_endereco','Rua dos Xavantes, s/n - Qd. K07 Lt. 08B',10,41.5,190,4.5,{fontSize:7.5,maxFontSize:8});
+    campo('remetente_cidade_cep','Setor Pampulha - CEP 74983-719 - Aparecida de Goiânia/GO',10,46,190,4.5,{fontSize:7.5,maxFontSize:8});
     doc.setDrawColor(...borda); doc.line(10,53,W-10,53);
     doc.setTextColor(...oliva); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('DESTINATÁRIO',10,59);
     campo('etiqueta_destinatario',l.cliente||'',10,60,190,6.5,{fontSize:11.5,maxFontSize:12,fontStyle:'bold'});

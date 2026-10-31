@@ -285,7 +285,13 @@
           <option value="Presencial">Presencial</option><option value="WhatsApp">WhatsApp</option><option value="Instagram">Instagram</option><option value="Nuvemshop / Site">Nuvemshop / Site</option><option value="Marketplace/TikTok Shop">Marketplace/TikTok Shop</option><option value="Outra venda direta">Outra venda direta</option>
         </select></div>
         <div class="field"><label>Valor recebido (R$)</label><input type="text" id="v-valor" class="money-mask" placeholder="0,00"></div>
-        <div class="field"><label>Produto(s) / descrição</label><input type="text" id="v-descricao" list="v-produtos-sugestoes" autocomplete="off" placeholder="Digite para buscar um produto..."><datalist id="v-produtos-sugestoes"></datalist><small style="display:block;margin-top:4px;color:var(--texto-sec);font-size:10px">Digite parte do nome, como “anel”, para ver os produtos cadastrados. Você também pode escrever uma descrição livre.</small></div>
+        <div class="field" style="grid-column:1 / -1">
+          <label>Produtos da venda</label>
+          <div id="v-produtos-lista" style="display:grid;gap:8px"></div>
+          <datalist id="v-produtos-sugestoes"></datalist>
+          <button type="button" class="btn-outline" id="v-adicionar-produto" style="margin-top:8px">＋ Adicionar produto</button>
+          <small style="display:block;margin-top:5px;color:var(--texto-sec);font-size:10px">Selecione um produto cadastrado ou digite uma descrição livre. Adicione quantos produtos fizerem parte desta venda.</small>
+        </div>
         <div class="field"><label>Forma de pagamento</label><select id="v-forma">
           <option>Pix</option><option>Cartão de crédito</option><option>Cartão de débito</option><option>Dinheiro</option><option>Transferência</option><option>Boleto</option>
         </select></div>
@@ -1880,15 +1886,40 @@ window.gerarPdfVenda = function(id){
   }catch(err){console.error('Erro ao gerar PDF da venda:',err);showToast('Não foi possível gerar o PDF desta venda.');}
 };
 
+function obterNomesProdutos(){
+  return [...new Set((pecas||[]).map(p=>String(p.nome||p.modelo||'').trim()).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+function atualizarSugestoesProdutos(){
+  const lista=document.getElementById('v-produtos-sugestoes');
+  if(!lista)return;
+  const escapar=v=>v.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  lista.innerHTML=obterNomesProdutos().map(nome=>'<option value="'+escapar(nome)+'"></option>').join('');
+}
+function adicionarLinhaProduto(valor='',quantidade=1){
+  const lista=document.getElementById('v-produtos-lista');if(!lista)return;
+  const linha=document.createElement('div');linha.className='v-produto-linha';
+  linha.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) 86px 36px;gap:7px;align-items:center';
+  const input=document.createElement('input');input.type='text';input.setAttribute('list','v-produtos-sugestoes');input.autocomplete='off';input.placeholder='Digite para buscar um produto...';input.value=valor;input.style.width='100%';
+  const qtd=document.createElement('input');qtd.type='number';qtd.min='1';qtd.step='1';qtd.value=String(quantidade||1);qtd.title='Quantidade';qtd.setAttribute('aria-label','Quantidade');qtd.style.width='100%';
+  const remover=document.createElement('button');remover.type='button';remover.className='btn-outline';remover.textContent='×';remover.title='Remover produto';remover.setAttribute('aria-label','Remover produto');remover.style.cssText='padding:7px 10px';
+  remover.addEventListener('click',()=>{linha.remove();if(!lista.children.length)adicionarLinhaProduto();});
+  linha.append(input,qtd,remover);lista.appendChild(linha);
+}
+function lerProdutosVenda(){
+  return [...document.querySelectorAll('#v-produtos-lista .v-produto-linha')].map(linha=>{
+    const campos=linha.querySelectorAll('input');const nome=campos[0].value.trim();const qtd=Math.max(1,parseInt(campos[1].value,10)||1);
+    return nome?(qtd>1?nome+' (x'+qtd+')':nome):'';
+  }).filter(Boolean);
+}
+function preencherProdutosVenda(descricao){
+  const lista=document.getElementById('v-produtos-lista');if(!lista)return;
+  lista.innerHTML='';
+  const itens=String(descricao||'').split(/\\s*\\|\\|\\s*/).map(x=>x.trim()).filter(Boolean);
+  if(itens.length)itens.forEach(item=>adicionarLinhaProduto(item,1));else adicionarLinhaProduto();
+}
 function renderVendas(){
-  const campoProduto=document.getElementById('v-descricao');
-  const listaProdutos=document.getElementById('v-produtos-sugestoes');
-  if(campoProduto && listaProdutos){
-    const nomes=[...new Set((pecas||[]).map(p=>String(p.nome||p.modelo||'').trim()).filter(Boolean))]
-      .sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    const escaparOpcao=v=>v.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    listaProdutos.innerHTML=nomes.map(nome=>'<option value="'+escaparOpcao(nome)+'"></option>').join('');
-  }
+  atualizarSugestoesProdutos();
   const selectConta=document.getElementById('v-conta');
   if(selectConta){
     const atual=selectConta.value;
@@ -4343,7 +4374,7 @@ let editandoVendaId=null;
 function limparFormularioVenda(){
   editandoVendaId=null;document.getElementById('v-titulo').textContent='Nova venda';
   document.getElementById('btn-add-venda').textContent='Registrar venda';document.getElementById('btn-cancelar-venda').style.display='none';
-  document.getElementById('v-descricao').value='';document.getElementById('v-cliente').value='';
+  preencherProdutosVenda('');document.getElementById('v-cliente').value='';
   document.getElementById('v-valor').value='';document.getElementById('v-obs').value='';
   ['telefone','cep','uf','rua','numero','complemento','bairro','cidade','rastreio'].forEach(k=>{const el=document.getElementById('v-envio-'+k);if(el)el.value='';});
   document.getElementById('v-envio-transportadora').value='';
@@ -4354,7 +4385,7 @@ window.editarVenda=function(id){
   editandoVendaId=Number(id);document.getElementById('v-titulo').textContent='Editar venda';
   document.getElementById('v-data').value=l.data;
   document.getElementById('v-canal').value=l.canal||((l.categoria||'').toLowerCase().includes('whatsapp')?'WhatsApp':'Presencial');
-  document.getElementById('v-descricao').value=l.descricao||'';document.getElementById('v-cliente').value=l.cliente||'';
+  preencherProdutosVenda(l.descricao||'');document.getElementById('v-cliente').value=l.cliente||'';
   document.getElementById('v-forma').value=l.forma||'Pix';document.getElementById('v-conta').value=l.contaId||'';
   document.getElementById('v-obs').value=l.observacoes||'';setMoedaValue(document.getElementById('v-valor'),l.entrada||0);
   const e=(l.entrega&&typeof l.entrega==='object')?l.entrega:{};
@@ -4365,6 +4396,7 @@ window.editarVenda=function(id){
   document.getElementById('page-vendas').scrollIntoView({behavior:'smooth'});
 };
 document.getElementById('btn-cancelar-venda').addEventListener('click',limparFormularioVenda);
+document.getElementById('v-adicionar-produto').addEventListener('click',()=>adicionarLinhaProduto());
 document.getElementById('btn-cancelar-saida').addEventListener('click',()=>{
   editandoLancamentoId=null;document.getElementById('f-titulo').textContent='Nova saída financeira';
   document.getElementById('btn-add').textContent='Registrar saída';document.getElementById('btn-cancelar-saida').style.display='none';
@@ -4373,7 +4405,7 @@ document.getElementById('btn-cancelar-saida').addEventListener('click',()=>{
 });
 document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
   const data=document.getElementById('v-data').value,canal=document.getElementById('v-canal').value;
-  const descricao=document.getElementById('v-descricao').value.trim(),cliente=document.getElementById('v-cliente').value.trim();
+  const produtosVenda=lerProdutosVenda(),descricao=produtosVenda.join(' || '),cliente=document.getElementById('v-cliente').value.trim();
   const forma=document.getElementById('v-forma').value,contaId=parseInt(document.getElementById('v-conta').value)||null;
   const entrada=getMoedaValue(document.getElementById('v-valor')),observacoes=document.getElementById('v-obs').value.trim();
   const entrega={

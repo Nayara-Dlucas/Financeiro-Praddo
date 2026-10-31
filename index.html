@@ -1945,8 +1945,9 @@ function renderVendas(){
     const conta=contasBancarias.find(c=>Number(c.id)===Number(l.contaId));
     const valor=fmtMoeda(l.entrada||0);
     const entrega=(l.entrega&&typeof l.entrega==='object')?l.entrega:{};
-    const pedido=entrega.pedido_numero||((String(l.canal||'').toLowerCase().includes('nuvemshop')||String(l.canal||'').toLowerCase().includes('site'))?((String(l.descricao||'').match(/Pedido Nuvemshop\s*#?([\w-]+)/i)||[])[1]?'#'+(String(l.descricao||'').match(/Pedido Nuvemshop\s*#?([\w-]+)/i)||[])[1]:'—'):'#'+String(1000+(Number(l.id||0)%9000)).padStart(4,'0')+'P');
-    const produtos=String(l.descricao||'').replace(/^Pedido Nuvemshop\s*#?[\w-]+\s*:\s*/i,'');
+    const numeroPedidoMatch=String(l.descricao||'').match(/Pedido\s*(?:Nuvemshop\s*)?#?\s*([\w-]+)/i);
+    const pedido=entrega.pedido_numero||(numeroPedidoMatch?'#'+numeroPedidoMatch[1]:((String(l.canal||'').toLowerCase().includes('nuvemshop')||String(l.canal||'').toLowerCase().includes('site'))?'—':'#'+String(1000+(Number(l.id||0)%9000)).padStart(4,'0')+'P'));
+    const produtos=String(l.descricao||'').replace(/^Pedido\s*(?:Nuvemshop\s*)?#?\s*[\w-]+\s*:\s*/i,'');
     const detalhes='<div style="padding:10px 4px;min-width:260px;white-space:normal"><strong>Produtos</strong><div style="margin:5px 0 9px">'+(produtos||'Não informado')+'</div>'+(l.observacoes?'<div><strong>Observações:</strong> '+l.observacoes+'</div>':'')+(l.entrega&&Object.values(l.entrega).some(Boolean)?'<div style="margin-top:6px"><strong>Dados de envio:</strong> '+[entrega.transportadora,entrega.rastreio,entrega.cidade,entrega.uf].filter(Boolean).join(' · ')+'</div>':'')+'</div>';
     return '<tr><td>'+fmtData(l.data)+'</td><td>'+(l.cliente||'—')+'</td><td><strong>'+pedido+'</strong></td>'
       +'<td><span class="tag">'+(l.canal||l.categoria||'—')+'</span></td>'

@@ -77,6 +77,7 @@
   .empty{text-align:center;padding:40px 20px;color:var(--texto-sec);font-size:13px}
   .empty i{font-size:28px;display:block;margin-bottom:10px;opacity:0.5}
   .hidden-val{filter:blur(6px);user-select:none}
+  body.valores-ocultos .kpi-value,body.valores-ocultos .val-entrada,body.valores-ocultos .val-saida,body.valores-ocultos .saldo-col,body.valores-ocultos .money-display{filter:blur(6px);user-select:none}
   .table-scroll{overflow-x:auto}
   .del-btn{color:var(--vermelho);background:none;border:none;cursor:pointer;font-size:15px;padding:4px 7px;border-radius:6px}
   .del-btn:hover{background:var(--vermelho-bg)}
@@ -172,6 +173,7 @@
   </div>
 </div>
 
+<button type="button" class="eye-toggle" id="eye-toggle" style="position:fixed;top:14px;right:22px;z-index:900;background:var(--card);border:1px solid var(--borda);border-radius:20px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.06)"><span id="eye-icon">👁</span><span id="eye-label">Ocultar valores</span></button>
 <div class="main">
 
   <!-- PÁGINA RESUMO -->
@@ -181,7 +183,7 @@
         <div class="page-title">Resumo</div>
         <div class="page-sub" id="resumo-data"></div>
       </div>
-      <div class="eye-toggle" id="eye-toggle"><span id="eye-icon">👁</span><span id="eye-label">Ocultar valores</span></div>
+      
     </div>
     <div style="margin-bottom:16px">
       <button class="btn-outline" id="btn-exportar-backup">⬇ Exportar backup (.json)</button>
@@ -330,7 +332,7 @@
       <div class="card-title">Histórico de vendas</div>
       <input type="text" id="busca-vendas" placeholder="Buscar por produto, cliente ou canal..." style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:8px;font-size:13px;margin-bottom:12px">
       <div class="table-scroll"><table id="tabela-vendas">
-        <thead><tr><th>Data</th><th>Cliente</th><th>Produto(s)</th><th>Canal</th><th>Pagamento</th><th>Conta</th><th>Valor</th><th></th></tr></thead>
+        <thead><tr><th>Data</th><th>Cliente</th><th>Nº do pedido</th><th>Canal</th><th>Pagamento</th><th>Conta</th><th>Valor</th><th>Detalhes / ações</th></tr></thead>
         <tbody id="tabela-vendas-body"></tbody>
       </table><div class="empty" id="vendas-empty"><i>—</i>Nenhuma venda registrada ainda.</div></div>
     </div>
@@ -1942,11 +1944,16 @@ function renderVendas(){
   document.getElementById('tabela-vendas-body').innerHTML=rows.map(l=>{
     const conta=contasBancarias.find(c=>Number(c.id)===Number(l.contaId));
     const valor=fmtMoeda(l.entrada||0);
-    return '<tr><td>'+fmtData(l.data)+'</td><td>'+(l.cliente||'—')+'</td><td title="'+(l.observacoes||'')+'">'+(l.descricao||'—')+'</td>'
+    const entrega=(l.entrega&&typeof l.entrega==='object')?l.entrega:{};
+    const pedido=entrega.pedido_numero||((String(l.canal||'').toLowerCase().includes('nuvemshop')||String(l.canal||'').toLowerCase().includes('site'))?((String(l.descricao||'').match(/Pedido Nuvemshop\s*#?([\w-]+)/i)||[])[1]?'#'+(String(l.descricao||'').match(/Pedido Nuvemshop\s*#?([\w-]+)/i)||[])[1]:'—'):'#'+String(1000+(Number(l.id||0)%9000)).padStart(4,'0')+'P');
+    const produtos=String(l.descricao||'').replace(/^Pedido Nuvemshop\s*#?[\w-]+\s*:\s*/i,'');
+    const detalhes='<div style="padding:10px 4px;min-width:260px;white-space:normal"><strong>Produtos</strong><div style="margin:5px 0 9px">'+(produtos||'Não informado')+'</div>'+(l.observacoes?'<div><strong>Observações:</strong> '+l.observacoes+'</div>':'')+(l.entrega&&Object.values(l.entrega).some(Boolean)?'<div style="margin-top:6px"><strong>Dados de envio:</strong> '+[entrega.transportadora,entrega.rastreio,entrega.cidade,entrega.uf].filter(Boolean).join(' · ')+'</div>':'')+'</div>';
+    return '<tr><td>'+fmtData(l.data)+'</td><td>'+(l.cliente||'—')+'</td><td><strong>'+pedido+'</strong></td>'
       +'<td><span class="tag">'+(l.canal||l.categoria||'—')+'</span></td>'
       +'<td>'+(l.forma||'—')+'</td><td>'+(conta?conta.nome:(l.contaNome||'—'))+'</td>'
       +'<td>'+(valoresOcultos?'<span class="hidden-val">'+valor+'</span>':valor)+'</td>'
-      +'<td><button class="btn-icon" onclick="gerarPdfVenda('+l.id+')" aria-label="Baixar PDF da venda" title="Baixar etiqueta e registro em PDF">PDF</button><button class="btn-icon" onclick="editarVenda('+l.id+')" aria-label="Editar venda">✎</button><button class="del-btn" onclick="excluirLancamento('+l.id+')" aria-label="Excluir venda">🗑</button></td></tr>';
+      +'<td><details><summary style="cursor:pointer;color:var(--oliva);font-size:12px">Ver detalhes</summary>'+detalhes+'</details>'
+      +'<button class="btn-icon" onclick="gerarPdfVenda('+l.id+')" aria-label="Baixar PDF da venda" title="Baixar PDF">PDF</button><button class="btn-icon" onclick="editarVenda('+l.id+')" aria-label="Editar venda">✎</button><button class="del-btn" onclick="excluirLancamento('+l.id+')" aria-label="Excluir venda">🗑</button></td></tr>';
   }).join('');
 }
 
@@ -4433,7 +4440,8 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
     if(antiga){
       const snap={...antiga};
       if(antiga.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(antiga.contaId));if(c)c.saldo=(c.saldo||0)-(antiga.entrada||0)+(antiga.saida||0);}
-      Object.assign(antiga,{data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,entrega,origem:antiga.origem||'painel'});
+      const entregaAtualizada={...entrega,...((antiga.entrega&&antiga.entrega.pedido_numero)?{pedido_numero:antiga.entrega.pedido_numero}:{})};
+      Object.assign(antiga,{data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,entrega:entregaAtualizada,origem:antiga.origem||'painel'});
       try{await salvarDados(antiga);}catch(e){
         Object.assign(antiga,snap);if(snap.contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(snap.contaId));if(c)c.saldo=(c.saldo||0)+(snap.entrada||0)-(snap.saida||0);}
         err.textContent='Não foi possível salvar a edição da venda. '+e.message;err.style.display='block';return;
@@ -4441,7 +4449,9 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
       if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)+entrada;}
       await salvarContasBancarias();vendaSalva=antiga;showToast('Venda atualizada');
     }else{
-      const nova={id:null,data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,entrega,origem:'painel',idempotencyKey:crypto.randomUUID()};
+      const pedidoNumero=String(canal).toLowerCase()==='presencial'?'#'+String(Math.floor(1000+Math.random()*9000))+'P':null;
+      const entregaVenda={...entrega,...(pedidoNumero?{pedido_numero:pedidoNumero}:{})};
+      const nova={id:null,data,tipo:'venda',categoria:'Venda '+canal,descricao,cliente,canal,forma,contaId,entrada,saida:0,observacoes,entrega:entregaVenda,origem:'painel',idempotencyKey:crypto.randomUUID()};
       try{await salvarDados(nova);}catch(e){err.textContent='Não foi possível registrar a venda. '+e.message;err.style.display='block';return;}
       lancamentos.push(nova);
       if(contaId){const c=contasBancarias.find(c=>Number(c.id)===Number(contaId));if(c)c.saldo=(c.saldo||0)+entrada;await salvarContasBancarias();}
@@ -4483,6 +4493,7 @@ document.getElementById('btn-exportar-backup')?.addEventListener('click', async 
 
 document.getElementById('eye-toggle').addEventListener('click', ()=>{
   valoresOcultos = !valoresOcultos;
+  document.body.classList.toggle('valores-ocultos',valoresOcultos);
   document.getElementById('eye-icon').textContent = valoresOcultos ? '🙈' : '👁';
   document.getElementById('eye-label').textContent = valoresOcultos ? 'Mostrar valores' : 'Ocultar valores';
   renderTudo();

@@ -324,7 +324,7 @@
       <div class="card-title">Histórico de vendas</div>
       <input type="text" id="busca-vendas" placeholder="Buscar por produto, cliente ou canal..." style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:8px;font-size:13px;margin-bottom:12px">
       <div class="table-scroll"><table id="tabela-vendas">
-        <thead><tr><th>Data</th><th>Produto(s)</th><th>Canal</th><th>Cliente</th><th>Pagamento</th><th>Conta</th><th>Valor</th><th></th></tr></thead>
+        <thead><tr><th>Data</th><th>Cliente</th><th>Produto(s)</th><th>Canal</th><th>Pagamento</th><th>Conta</th><th>Valor</th><th></th></tr></thead>
         <tbody id="tabela-vendas-body"></tbody>
       </table><div class="empty" id="vendas-empty"><i>—</i>Nenhuma venda registrada ainda.</div></div>
     </div>
@@ -1903,8 +1903,8 @@ function renderVendas(){
   document.getElementById('tabela-vendas-body').innerHTML=rows.map(l=>{
     const conta=contasBancarias.find(c=>Number(c.id)===Number(l.contaId));
     const valor=fmtMoeda(l.entrada||0);
-    return '<tr><td>'+fmtData(l.data)+'</td><td title="'+(l.observacoes||'')+'">'+(l.descricao||'—')+'</td>'
-      +'<td><span class="tag">'+(l.canal||l.categoria||'—')+'</span></td><td>'+(l.cliente||'—')+'</td>'
+    return '<tr><td>'+fmtData(l.data)+'</td><td>'+(l.cliente||'—')+'</td><td title="'+(l.observacoes||'')+'">'+(l.descricao||'—')+'</td>'
+      +'<td><span class="tag">'+(l.canal||l.categoria||'—')+'</span></td>'
       +'<td>'+(l.forma||'—')+'</td><td>'+(conta?conta.nome:(l.contaNome||'—'))+'</td>'
       +'<td>'+(valoresOcultos?'<span class="hidden-val">'+valor+'</span>':valor)+'</td>'
       +'<td><button class="btn-icon" onclick="gerarPdfVenda('+l.id+')" aria-label="Baixar PDF da venda" title="Baixar etiqueta e registro em PDF">PDF</button><button class="btn-icon" onclick="editarVenda('+l.id+')" aria-label="Editar venda">✎</button><button class="del-btn" onclick="excluirLancamento('+l.id+')" aria-label="Excluir venda">🗑</button></td></tr>';

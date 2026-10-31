@@ -285,7 +285,7 @@
           <option value="Presencial">Presencial</option><option value="WhatsApp">WhatsApp</option><option value="Instagram">Instagram</option><option value="Nuvemshop / Site">Nuvemshop / Site</option><option value="Marketplace/TikTok Shop">Marketplace/TikTok Shop</option><option value="Outra venda direta">Outra venda direta</option>
         </select></div>
         <div class="field"><label>Valor recebido (R$)</label><input type="text" id="v-valor" class="money-mask" placeholder="0,00"></div>
-        <div class="field"><label>Produto(s) / descrição</label><input type="text" id="v-descricao" placeholder="Ex.: brinco solitário 8 mm"></div>
+        <div class="field"><label>Produto(s) / descrição</label><input type="text" id="v-descricao" list="v-produtos-sugestoes" autocomplete="off" placeholder="Digite para buscar um produto..."><datalist id="v-produtos-sugestoes"></datalist><small style="display:block;margin-top:4px;color:var(--texto-sec);font-size:10px">Digite parte do nome, como “anel”, para ver os produtos cadastrados. Você também pode escrever uma descrição livre.</small></div>
         <div class="field"><label>Forma de pagamento</label><select id="v-forma">
           <option>Pix</option><option>Cartão de crédito</option><option>Cartão de débito</option><option>Dinheiro</option><option>Transferência</option><option>Boleto</option>
         </select></div>
@@ -1881,6 +1881,14 @@ window.gerarPdfVenda = function(id){
 };
 
 function renderVendas(){
+  const campoProduto=document.getElementById('v-descricao');
+  const listaProdutos=document.getElementById('v-produtos-sugestoes');
+  if(campoProduto && listaProdutos){
+    const nomes=[...new Set((pecas||[]).map(p=>String(p.nome||p.modelo||'').trim()).filter(Boolean))]
+      .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const escaparOpcao=v=>v.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    listaProdutos.innerHTML=nomes.map(nome=>'<option value="'+escaparOpcao(nome)+'"></option>').join('');
+  }
   const selectConta=document.getElementById('v-conta');
   if(selectConta){
     const atual=selectConta.value;

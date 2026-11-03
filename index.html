@@ -342,7 +342,7 @@
         <div class="field"><label for="nuvemshop-app-secret">Client Secret do aplicativo</label><input type="password" id="nuvemshop-app-secret" autocomplete="off" placeholder="Cole o segredo privado do app"></div>
         <button type="button" class="btn" id="btn-nuvemshop-conectar">Conectar / autorizar</button>
       </div>
-      <div class="page-sub" style="margin-top:10px">Cadastre no Portal de Parceiros a URL de retorno abaixo e os escopos <strong>read_orders</strong> e <strong>write_products</strong>. A permissão de escrita em produtos também permite consultar o catálogo.. O segredo será enviado por HTTPS ao backend e guardado no Vault; ele não será salvo no navegador.</div>
+      <div class="page-sub" style="margin-top:10px">Cadastre no Portal de Parceiros a URL de retorno abaixo e os escopos <strong>read_orders</strong>, <strong>write_products</strong> e <strong>read_customers</strong>. A permissão de escrita em produtos também permite consultar o catálogo. A leitura de clientes autoriza a consulta dos cadastros para a futura importação ao CRM. O segredo será enviado por HTTPS ao backend e guardado no Vault; ele não será salvo no navegador.</div>
       <div class="field" style="margin-top:9px"><label>URL de retorno OAuth (copie para o Portal de Parceiros)</label><input type="text" id="nuvemshop-callback-url" readonly value="https://fulggjkqpxuyvooqunyb.supabase.co/functions/v1/nuvemshop-bridge?mode=oauth_callback"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button type="button" class="btn-outline" id="btn-nuvemshop-sync">Sincronizar estoque pendente</button>

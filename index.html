@@ -4503,33 +4503,27 @@ document.getElementById('btn-exportar-backup')?.addEventListener('click', async 
   if(botao?.disabled)return;
   if(botao)botao.disabled=true;
   try{
-    const chaves = [
-      'fluxo_caixa_lancamentos','custos_loja_variaveis','custos_loja_fixos','custos_loja_taxas',
-      'pecas_modelos','fornecedores_cadastro','fechamentos_caixa','crm_clientes',
-      'contas_pagar','contas_receber','mei_config','mei_taxas_avulsas',
-      'contas_bancarias','reserva_emergencia','embaixadoras_cadastro','custos_loja_frete_padrao'
-    ];
     const backup = {};
-    for(const chave of chaves){
-      const r = await window.storage.get(chave);
-      backup[chave] = r ? JSON.parse(r.value) : null;
-    }
-    const [financeiro,versoes,auditoria]=await Promise.all([
+    const [cadastros,financeiro,versoes,auditoria]=await Promise.all([
+      sbClient.from('app_data').select('key,value,updated_at').order('key').limit(1000),
       sbClient.from('lancamentos_financeiros').select('*').order('data',{ascending:false}).limit(10000),
       sbClient.from('app_data_versions').select('*').order('changed_at',{ascending:false}).limit(10000),
       sbClient.from('lancamentos_financeiros_audit').select('*').order('occurred_at',{ascending:false}).limit(10000)
     ]);
+    if(cadastros.error)throw cadastros.error;
     if(financeiro.error)throw financeiro.error;
     if(versoes.error)throw versoes.error;
     if(auditoria.error)throw auditoria.error;
+    backup.app_data=cadastros.data||[];
+    for(const registro of backup.app_data)backup[registro.key]=registro.value;
     backup.lancamentos_financeiros=financeiro.data||[];
     backup.app_data_versions=versoes.data||[];
     backup.lancamentos_financeiros_audit=auditoria.data||[];
     backup._manifest={
-      versao:2,
+      versao:3,
       exportado_em:new Date().toISOString(),
-      fontes_lidas:chaves.length+3,
-      quantidade_lancamentos:backup.lancamentos_financeiros.length,
+      fontes_lidas:4,
+      quantidade_cadastros:backup.app_data.length,\n      quantidade_lancamentos:backup.lancamentos_financeiros.length,
       quantidade_versoes:backup.app_data_versions.length,
       quantidade_auditorias:backup.lancamentos_financeiros_audit.length,
       completo:true

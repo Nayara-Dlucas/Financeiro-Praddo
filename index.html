@@ -168,6 +168,7 @@
   <div class="nav-item" data-page="contas"><span class="nav-icon">▥</span>Contas a pagar</div>
   <div class="nav-item" data-page="impostos"><span class="nav-icon">▧</span>Impostos MEI</div>
   <div class="nav-item" data-page="embaixadoras"><span class="nav-icon">★</span>Embaixadoras</div>
+  <div class="nav-item" data-page="seguranca"><span class="nav-icon">▣</span>Backups e auditoria</div>
   <div class="sidebar-account">
     <div id="auth-user-email" class="account-email"></div>
     <button type="button" class="btn-outline" id="btn-sair">Sair do painel</button>
@@ -913,6 +914,29 @@
     <div id="lista-embaixadoras"></div>
   </div>
 
+  <div class="page" id="page-seguranca">
+    <div class="page-header">
+      <div><div class="page-title">Backups e auditoria</div><div class="page-sub">Versões recuperáveis dos cadastros e histórico das alterações financeiras.</div></div>
+      <button class="btn-outline" type="button" onclick="carregarHistoricoSeguranca()">Atualizar histórico</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Como funciona a proteção</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--texto-sec)">Cada alteração nos cadastros principais preserva a versão anterior no banco. As alterações em vendas, receitas e saídas também ficam registradas com data, operação e dados anteriores/novos. Restaurar uma versão cria uma nova alteração; o estado que estava ativo antes da restauração também continua preservado.</div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div class="card-title" style="margin-bottom:0">Versões dos cadastros</div><span class="tag" id="backup-total">Carregando...</span></div>
+      <div class="page-sub" style="margin:8px 0 12px">Inclui uma cópia inicial de cada conjunto de dados e as versões anteriores geradas por alterações futuras.</div>
+      <div class="table-scroll"><table><thead><tr><th>Data e hora</th><th>Cadastro</th><th>Tipo</th><th>Versão anterior</th><th></th></tr></thead><tbody id="backup-versoes-body"></tbody></table></div>
+      <div class="empty" id="backup-versoes-empty" style="display:none"><i>—</i>Nenhuma versão encontrada.</div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div class="card-title" style="margin-bottom:0">Auditoria financeira</div><span class="tag" id="auditoria-total">Carregando...</span></div>
+      <div class="page-sub" style="margin:8px 0 12px">Mostra inclusões, edições e exclusões de lançamentos financeiros a partir da ativação da auditoria.</div>
+      <div class="table-scroll"><table><thead><tr><th>Data e hora</th><th>Operação</th><th>Lançamento</th><th>Valor</th></tr></thead><tbody id="auditoria-financeira-body"></tbody></table></div>
+      <div class="empty" id="auditoria-financeira-empty" style="display:none"><i>—</i>Nenhuma alteração financeira registrada ainda.</div>
+    </div>
+  </div>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1081,29 +1105,16 @@ window.storage = {
   async set(key, valueString){
     let parsed;
     try{ parsed = JSON.parse(valueString); }catch(e){ parsed = valueString; }
-    // Preserva a última versão confirmada antes de substituir o registro principal.
-    const { data: previous, error: readError } = await sbClient.from('app_data').select('value,updated_at').eq('key', key).maybeSingle();
-    if(readError){ showToastSafe('Não foi possível confirmar a versão atual. Salvamento cancelado para proteger os dados.'); throw readError; }
-    if(previous){
-      const backupKey = 'backup__' + key;
-      const backupValue = { saved_at: new Date().toISOString(), source_updated_at: previous.updated_at || null, value: previous.value };
-      const { error: backupError } = await sbClient.from('app_data').upsert({ key: backupKey, value: backupValue, updated_at: new Date().toISOString() });
-      if(backupError){ showToastSafe('Não foi possível criar backup da versão anterior. Salvamento cancelado.'); throw backupError; }
-    }
+    // O trigger do banco guarda a versão anterior na mesma transação do salvamento.
     const { error } = await sbClient.from('app_data').upsert({ key, value: parsed, updated_at: new Date().toISOString() });
     if(error){ showToastSafe('Erro ao salvar dados: '+error.message); throw error; }
-    return { key, value: valueString, shared: false, backupCreated: !!previous };
+    return { key, value: valueString, shared: false };
   },
   async delete(key){
-    const { data: previous, error: readError } = await sbClient.from('app_data').select('value,updated_at').eq('key', key).maybeSingle();
-    if(readError) throw readError;
-    if(previous){
-      const { error: backupError } = await sbClient.from('app_data').upsert({ key: 'backup__' + key, value: { saved_at: new Date().toISOString(), source_updated_at: previous.updated_at || null, value: previous.value }, updated_at: new Date().toISOString() });
-      if(backupError) throw backupError;
-    }
+    // O trigger do banco preserva o conteúdo antes da exclusão.
     const { error } = await sbClient.from('app_data').delete().eq('key', key);
     if(error) throw error;
-    return { key, deleted: true, backupCreated: !!previous, shared: false };
+    return { key, deleted: true, shared: false };
   }
 };
 
@@ -4524,12 +4535,79 @@ document.getElementById('eye-toggle').addEventListener('click', ()=>{
   renderTudo();
 });
 
+function escaparHtmlSeguranca(valor){
+  return String(valor ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function formatarDataHoraSeguranca(valor){
+  if(!valor)return '—';
+  const d=new Date(valor);
+  return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+}
+function rotuloChaveBackup(chave){
+  const nomes={pecas_modelos:'Produtos cadastrados',fornecedores_cadastro:'Fornecedores',crm_clientes:'Clientes',embaixadoras_cadastro:'Embaixadoras',custos_loja_variaveis:'Custos variáveis',custos_loja_fixos:'Custos fixos',custos_loja_taxas:'Taxas da loja',fluxo_caixa_lancamentos:'Lançamentos legados',fechamentos_caixa:'Fechamentos de caixa',contas_bancarias:'Contas bancárias',contas_pagar:'Contas a pagar',contas_receber:'Contas a receber',mei_config:'Configuração MEI',mei_taxas_avulsas:'Taxas MEI',reserva_emergencia:'Reserva de emergência',custos_loja_frete_padrao:'Frete padrão'};
+  return nomes[chave]||chave;
+}
+async function carregarHistoricoSeguranca(){
+  const vb=document.getElementById('backup-versoes-body'),ab=document.getElementById('auditoria-financeira-body');
+  if(!vb||!ab)return;
+  vb.innerHTML='<tr><td colspan="5">Carregando versões...</td></tr>';
+  ab.innerHTML='<tr><td colspan="4">Carregando auditoria...</td></tr>';
+  try{
+    const [vr,ar]=await Promise.all([
+      sbClient.from('app_data_versions').select('id,data_key,operation,previous_updated_at,changed_by,changed_at').order('changed_at',{ascending:false}).limit(150),
+      sbClient.from('lancamentos_financeiros_audit').select('id,lancamento_id,operation,before_data,after_data,actor_id,occurred_at').order('occurred_at',{ascending:false}).limit(150)
+    ]);
+    if(vr.error)throw vr.error;if(ar.error)throw ar.error;
+    const versoes=(vr.data||[]).filter(v=>!String(v.data_key||'').startsWith('backup__'));
+    document.getElementById('backup-total').textContent=versoes.length+' versões';
+    document.getElementById('auditoria-total').textContent=(ar.data||[]).length+' alterações';
+    document.getElementById('backup-versoes-empty').style.display=versoes.length?'none':'block';
+    vb.innerHTML=versoes.map(v=>{
+      const op=v.operation==='BASELINE'?'Ponto de partida':(v.operation==='DELETE'?'Exclusão preservada':'Versão anterior');
+      return '<tr><td>'+escaparHtmlSeguranca(formatarDataHoraSeguranca(v.changed_at))+'</td><td>'+escaparHtmlSeguranca(rotuloChaveBackup(v.data_key))+'</td><td><span class="tag">'+op+'</span></td><td>'+escaparHtmlSeguranca(formatarDataHoraSeguranca(v.previous_updated_at))+'</td><td><button class="btn-outline" type="button" onclick="restaurarVersaoAppData('+Number(v.id)+')">Restaurar</button></td></tr>';
+    }).join('');
+    const audit=ar.data||[];
+    document.getElementById('auditoria-financeira-empty').style.display=audit.length?'none':'block';
+    ab.innerHTML=audit.map(a=>{
+      const r=a.after_data||a.before_data||{};
+      const op=a.operation==='INSERT'?'Inclusão':(a.operation==='DELETE'?'Exclusão':'Edição');
+      const descr=[r.data||'',r.descricao||r.categoria||'',r.cliente?('Cliente: '+r.cliente):''].filter(Boolean).join(' · ');
+      const val=Number(r.entrada||0)>0?Number(r.entrada):Number(r.saida||0);
+      return '<tr><td>'+escaparHtmlSeguranca(formatarDataHoraSeguranca(a.occurred_at))+'</td><td><span class="tag">'+op+'</span></td><td><strong>#'+Number(a.lancamento_id)+'</strong> '+escaparHtmlSeguranca(descr||'Lançamento financeiro')+'</td><td><span class="money-display">'+escaparHtmlSeguranca(fmtMoeda(val))+'</span></td></tr>';
+    }).join('');
+    if(!versoes.length)vb.innerHTML='';if(!audit.length)ab.innerHTML='';
+  }catch(e){
+    console.error('Erro ao carregar backups e auditoria:',e);
+    vb.innerHTML='<tr><td colspan="5">Não foi possível carregar as versões. Nenhum dado foi alterado.</td></tr>';
+    ab.innerHTML='<tr><td colspan="4">Não foi possível carregar a auditoria.</td></tr>';
+    document.getElementById('backup-total').textContent='Erro de leitura';
+    document.getElementById('auditoria-total').textContent='Erro de leitura';
+  }
+}
+window.restaurarVersaoAppData=async function(id){
+  confirmarExclusao('Restaurar esta versão do cadastro? O conteúdo atual será preservado automaticamente como uma nova versão antes da restauração.',async ()=>{
+    try{
+      const {data,error}=await sbClient.from('app_data_versions').select('id,data_key,snapshot,operation').eq('id',Number(id)).single();
+      if(error)throw error;
+      if(!data||!data.data_key||String(data.data_key).startsWith('backup__'))throw new Error('Versão inválida para restauração.');
+      await window.storage.set(data.data_key,JSON.stringify(data.snapshot));
+      await carregarDados();
+      await carregarHistoricoSeguranca();
+      showToast('Versão restaurada. A versão anterior também foi preservada.');
+    }catch(e){
+      console.error('Erro ao restaurar versão:',e);
+      showToast('Não foi possível restaurar esta versão: '+e.message);
+    }
+  },'Restaurar');
+};
+
 document.querySelectorAll('.nav-item[data-page]').forEach(item=>{
   item.addEventListener('click', ()=>{
     document.querySelectorAll('.nav-item[data-page]').forEach(i=>i.classList.remove('active'));
     item.classList.add('active');
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     document.getElementById('page-'+item.dataset.page).classList.add('active');
+    if(item.dataset.page==='seguranca')carregarHistoricoSeguranca();
   });
 });
 

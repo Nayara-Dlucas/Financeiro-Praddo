@@ -4499,32 +4499,55 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
 });
 
 document.getElementById('btn-exportar-backup')?.addEventListener('click', async ()=>{
-  const chaves = [
-    'fluxo_caixa_lancamentos','custos_loja_variaveis','custos_loja_fixos','custos_loja_taxas',
-    'pecas_modelos','fornecedores_cadastro','fechamentos_caixa','crm_clientes',
-    'contas_pagar','contas_receber','mei_config','mei_taxas_avulsas',
-    'contas_bancarias','reserva_emergencia','embaixadoras_cadastro'
-  ];
-  const backup = {};
-  for(const chave of chaves){
-    try{
+  const botao=document.getElementById('btn-exportar-backup');
+  if(botao?.disabled)return;
+  if(botao)botao.disabled=true;
+  try{
+    const chaves = [
+      'fluxo_caixa_lancamentos','custos_loja_variaveis','custos_loja_fixos','custos_loja_taxas',
+      'pecas_modelos','fornecedores_cadastro','fechamentos_caixa','crm_clientes',
+      'contas_pagar','contas_receber','mei_config','mei_taxas_avulsas',
+      'contas_bancarias','reserva_emergencia','embaixadoras_cadastro','custos_loja_frete_padrao'
+    ];
+    const backup = {};
+    for(const chave of chaves){
       const r = await window.storage.get(chave);
       backup[chave] = r ? JSON.parse(r.value) : null;
-    }catch(e){
-      backup[chave] = null;
     }
+    const [financeiro,versoes,auditoria]=await Promise.all([
+      sbClient.from('lancamentos_financeiros').select('*').order('data',{ascending:false}).limit(10000),
+      sbClient.from('app_data_versions').select('*').order('changed_at',{ascending:false}).limit(10000),
+      sbClient.from('lancamentos_financeiros_audit').select('*').order('occurred_at',{ascending:false}).limit(10000)
+    ]);
+    if(financeiro.error)throw financeiro.error;
+    if(versoes.error)throw versoes.error;
+    if(auditoria.error)throw auditoria.error;
+    backup.lancamentos_financeiros=financeiro.data||[];
+    backup.app_data_versions=versoes.data||[];
+    backup.lancamentos_financeiros_audit=auditoria.data||[];
+    backup._manifest={
+      versao:2,
+      exportado_em:new Date().toISOString(),
+      fontes_lidas:chaves.length+3,
+      quantidade_lancamentos:backup.lancamentos_financeiros.length,
+      quantidade_versoes:backup.app_data_versions.length,
+      quantidade_auditorias:backup.lancamentos_financeiros_audit.length,
+      completo:true
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'backup-praddo-painel-'+new Date().toISOString().slice(0,10)+'.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    showToast('Backup completo baixado com histórico e auditoria.');
+  }catch(e){
+    console.error('Backup não concluído:',e);
+    showToast('Backup cancelado: não foi possível ler todas as fontes. Nenhum arquivo incompleto foi baixado.');
+  }finally{
+    if(botao)botao.disabled=false;
   }
-  // A chave legado é mantida no backup como referência; esta é a lista financeira atual.
-  backup.lancamentos_financeiros = lancamentos;
-  backup._exportadoEm = new Date().toISOString();
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'backup-praddo-painel-'+new Date().toISOString().slice(0,10)+'.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Backup baixado');
 });
 
 document.getElementById('eye-toggle').addEventListener('click', ()=>{

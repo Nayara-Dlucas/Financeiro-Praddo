@@ -1658,7 +1658,7 @@ async function carregarStatusNuvemshop(){
       statusEl.textContent='Conectada';
       statusEl.style.background='#e7efe3';
       statusEl.style.color='#45603e';
-      detalhe.textContent='Loja conectada · '+(s.pending_stock||0)+' atualização(ões) pendente(s) · '+(s.orders_received||0)+' pedido(s) recebido(s)';
+      detalhe.textContent='Loja conectada · '+(s.pending_stock||0)+' atualização(ões) de estoque pendente(s) · '+(s.pending_webhooks||0)+' webhook(s) na fila · '+(s.orders_received||0)+' pedido(s) recebido(s)';
     }else{
       statusEl.textContent=s.status==='aguardando_autorizacao'?'Aguardando autorização':'Não conectada';
       statusEl.style.background='';

@@ -159,6 +159,7 @@
 
   <div class="nav-item active" data-page="resumo"><span class="nav-icon">◆</span>Resumo</div>
   <div class="nav-item" data-page="vendas"><span class="nav-icon">＋</span>Lançamento de vendas</div>
+  <div class="nav-item" data-page="estoque"><span class="nav-icon">▦</span>Estoque</div>
   <div class="nav-item" data-page="fluxo"><span class="nav-icon">⇄</span>Saídas Praddo</div>
   <div class="nav-item" data-page="fechamento"><span class="nav-icon">◈</span>Fechamento de caixa</div>
   <div class="nav-item" data-page="custos"><span class="nav-icon">▢</span>Custos da loja</div>
@@ -341,6 +342,49 @@
         <thead><tr><th>Data</th><th>Cliente</th><th>Nº do pedido</th><th>Canal</th><th>Pagamento</th><th>Conta</th><th>Valor</th><th>Detalhes / ações</th></tr></thead>
         <tbody id="tabela-vendas-body"></tbody>
       </table><div class="empty" id="vendas-empty"><i>—</i>Nenhuma venda registrada ainda.</div></div>
+    </div>
+  </div>
+
+  <!-- PÁGINA DE ESTOQUE -->
+  <div class="page" id="page-estoque">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Estoque</div>
+        <div class="page-sub">Controle interno por produto e variante. O saldo inicial foi lido da Nuvemshop em 03/11/2026; ajustes aqui não alteram automaticamente a loja online.</div>
+      </div>
+      <button type="button" class="btn-outline" id="btn-atualizar-estoque">Atualizar estoque</button>
+    </div>
+    <div class="peca-kpi-grid" style="margin-bottom:16px">
+      <div class="kpi-card"><div class="kpi-label">Unidades controladas</div><div class="kpi-value" id="estoque-unidades">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Variantes controladas</div><div class="kpi-value" id="estoque-controladas">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Aguardando contagem</div><div class="kpi-value" id="estoque-pendentes">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Estoque ilimitado</div><div class="kpi-value" id="estoque-ilimitadas">—</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Conferência e ajuste de saldo</div>
+      <div class="page-sub" style="margin-bottom:12px">Informe a quantidade física conferida. O painel registra o ajuste no histórico sem apagar a movimentação anterior.</div>
+      <div class="form-grid" style="grid-template-columns:minmax(220px,2fr) minmax(120px,1fr) minmax(180px,2fr) auto">
+        <div class="field"><label>Produto / variante</label><select id="estoque-ajuste-item"><option value="">Selecione</option></select></div>
+        <div class="field"><label>Quantidade contada</label><input type="number" id="estoque-ajuste-qtd" min="0" step="1" placeholder="0"></div>
+        <div class="field"><label>Observação (opcional)</label><input type="text" id="estoque-ajuste-obs" placeholder="Ex.: contagem física em 03/11"></div>
+        <button type="button" class="btn" id="btn-salvar-ajuste-estoque">Registrar contagem</button>
+      </div>
+      <div class="err" id="estoque-ajuste-erro"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Saldos por produto e variante</div>
+      <div class="form-grid" style="grid-template-columns:minmax(220px,2fr) minmax(180px,1fr);margin-bottom:12px">
+        <div class="field"><label>Buscar produto, SKU ou variante</label><input type="search" id="busca-estoque" placeholder="Digite para pesquisar"></div>
+        <div class="field"><label>Exibir</label><select id="filtro-estoque"><option value="todos">Todos</option><option value="controlado">Com saldo controlado</option><option value="aguardando_contagem">Aguardando contagem</option><option value="ilimitado">Ilimitado</option></select></div>
+      </div>
+      <div class="table-scroll">
+        <table id="tabela-estoque">
+          <thead><tr><th>Produto</th><th>SKU</th><th>Variante</th><th>Saldo</th><th>Situação</th><th>Origem</th></tr></thead>
+          <tbody id="tabela-estoque-body"></tbody>
+        </table>
+        <div class="empty" id="estoque-empty"><i>—</i>Nenhum item encontrado.</div>
+      </div>
+      <div class="page-sub" style="margin-top:10px">Vendas com variante identificada geram movimentações internas automaticamente. Itens sem vínculo ou contagem confirmada entram como pendentes, sem baixa fictícia.</div>
     </div>
   </div>
 
@@ -1135,6 +1179,7 @@ let meiTaxasAvulsas = [];
 let contasBancarias = [];
 let reservaEmergencia = {valor:0, atualizado:null};
 let embaixadoras = [];
+let estoqueVariantes = [];
 let valoresOcultos = false;
 let chartFluxo = null;
 
@@ -1541,6 +1586,85 @@ async function salvarFretePadrao(){
   }
 }
 
+async function carregarDadosEstoque(){
+  const {data,error}=await sbClient.from('estoque_variantes').select('*').order('nome_produto').limit(2000);
+  if(error)throw error;
+  estoqueVariantes=data||[];
+  renderEstoque();
+}
+function formatarPropriedadesEstoque(obj){
+  if(!obj||typeof obj!=='object')return '—';
+  const parts=Object.entries(obj).map(([k,v])=>k+': '+v);
+  return parts.length?parts.join(' · '):'—';
+}
+function renderEstoque(){
+  const controladas=estoqueVariantes.filter(x=>x.status_estoque==='controlado');
+  const pendentes=estoqueVariantes.filter(x=>x.status_estoque==='aguardando_contagem');
+  const ilimitadas=estoqueVariantes.filter(x=>x.status_estoque==='ilimitado');
+  document.getElementById('estoque-unidades').textContent=controladas.reduce((s,x)=>s+(Number(x.saldo_atual)||0),0).toLocaleString('pt-BR');
+  document.getElementById('estoque-controladas').textContent=String(controladas.length);
+  document.getElementById('estoque-pendentes').textContent=String(pendentes.length);
+  document.getElementById('estoque-ilimitadas').textContent=String(ilimitadas.length);
+  const termo=removerAcentos((document.getElementById('busca-estoque')?.value||'').toLowerCase());
+  const filtro=document.getElementById('filtro-estoque')?.value||'todos';
+  const rows=estoqueVariantes.filter(x=>{
+    const texto=removerAcentos([x.nome_produto,x.sku,formatarPropriedadesEstoque(x.propriedades)].filter(Boolean).join(' ').toLowerCase());
+    return (!termo||texto.includes(termo))&&(filtro==='todos'||x.status_estoque===filtro);
+  });
+  const body=document.getElementById('tabela-estoque-body');
+  const empty=document.getElementById('estoque-empty');
+  const table=document.getElementById('tabela-estoque');
+  if(!rows.length){body.innerHTML='';table.style.display='none';empty.style.display='block';return;}
+  table.style.display='table';empty.style.display='none';
+  body.innerHTML=rows.map(x=>{
+    const saldo=x.status_estoque==='ilimitado'?'Ilimitado':x.status_estoque==='aguardando_contagem'?'Aguardando contagem':String(x.saldo_atual??'—');
+    const status=x.status_estoque==='controlado'?(Number(x.saldo_atual)<0?'Saldo negativo':'Controlado'):x.status_estoque==='ilimitado'?'Ilimitado':'Pendente';
+    const origem=x.fonte_baseline==='nuvemshop'?'Nuvemshop':x.fonte_baseline==='contagem_fisica'?'Contagem física':'Pendente';
+    return '<tr><td>'+escaparHtmlSeguranca(x.nome_produto||'—')+'</td><td><strong>'+escaparHtmlSeguranca(x.sku||'—')+'</strong></td><td>'+escaparHtmlSeguranca(formatarPropriedadesEstoque(x.propriedades))+'</td><td>'+escaparHtmlSeguranca(saldo)+'</td><td><span class="tag">'+escaparHtmlSeguranca(status)+'</span></td><td>'+escaparHtmlSeguranca(origem)+'</td></tr>';
+  }).join('');
+  const select=document.getElementById('estoque-ajuste-item');
+  const atual=select.value;
+  select.innerHTML='<option value="">Selecione</option>'+estoqueVariantes.map(x=>{
+    const varTxt=formatarPropriedadesEstoque(x.propriedades);
+    const s=x.status_estoque==='ilimitado'?'ilimitado':x.status_estoque==='aguardando_contagem'?'pendente':'saldo '+x.saldo_atual;
+    return '<option value="'+x.id+'">'+escaparHtmlSeguranca(x.nome_produto)+' · '+escaparHtmlSeguranca(x.sku||'sem SKU')+' · '+escaparHtmlSeguranca(varTxt)+' · '+s+'</option>';
+  }).join('');
+  if(atual)select.value=atual;
+}
+async function atualizarEstoqueTela(){
+  const btn=document.getElementById('btn-atualizar-estoque');
+  if(btn)btn.disabled=true;
+  try{await carregarDadosEstoque();showToast('Estoque atualizado.');}
+  catch(e){console.error('Erro ao carregar estoque:',e);showToast('Não foi possível carregar o estoque: '+e.message);}
+  finally{if(btn)btn.disabled=false;}
+}
+async function salvarContagemEstoque(){
+  const itemId=Number(document.getElementById('estoque-ajuste-item').value);
+  const qtdEl=document.getElementById('estoque-ajuste-qtd');
+  const obs=document.getElementById('estoque-ajuste-obs').value.trim();
+  const err=document.getElementById('estoque-ajuste-erro');
+  const qtd=qtdEl.value.trim()===''?null:Number(qtdEl.value);
+  if(!itemId||qtd===null||!Number.isInteger(qtd)||qtd<0){
+    err.textContent='Selecione um produto e informe a quantidade física contada (zero ou mais).';err.style.display='block';return;
+  }
+  const btn=document.getElementById('btn-salvar-ajuste-estoque');
+  if(btn.disabled)return;
+  btn.disabled=true;err.style.display='none';
+  try{
+    const {data,error}=await sbClient.rpc('registrar_contagem_estoque',{
+      p_estoque_variante_id:itemId,p_novo_saldo:qtd,p_descricao:obs||null
+    });
+    if(error)throw error;
+    document.getElementById('estoque-ajuste-qtd').value='';
+    document.getElementById('estoque-ajuste-obs').value='';
+    await carregarDadosEstoque();
+    showToast('Contagem registrada e histórico atualizado.');
+  }catch(e){
+    console.error('Erro ao registrar contagem de estoque:',e);
+    err.textContent='Não foi possível registrar a contagem: '+e.message;err.style.display='block';
+  }finally{btn.disabled=false;}
+}
+
 function renderTudo(){
   renderResumo();
   renderVendas();
@@ -1936,13 +2060,13 @@ function atualizarSugestoesProdutos(){
 }
 function calcularCustoSnapshotProduto(p){
   if(!p)return null;
-  const embalagensTotal=(p.embalagens||[]).reduce((s,e)=>s+(Number(e.unit)||0)*(Number(e.qtd)||0),0);
   const custoBase=Number(p.custoProduto)||0;
+  if(custoBase<=0)return null;
+  const embalagensTotal=(p.embalagens||[]).reduce((s,e)=>s+(Number(e.unit)||0)*(Number(e.qtd)||0),0);
   const custosAdd=Number(p.custosAdd)||0;
   const frete=Number(p.frete)||0;
   const extras=Number(p.extras)||0;
-  const custoTotal=custoBase+custosAdd+frete+extras+embalagensTotal;
-  return custoTotal>0?Number(custoTotal.toFixed(2)):null;
+  return Number((custoBase+custosAdd+frete+extras+embalagensTotal).toFixed(2));
 }
 function localizarProdutoDaVenda(nome){
   const termo=String(nome||'').trim().toLocaleLowerCase('pt-BR');
@@ -1952,33 +2076,73 @@ function localizarProdutoDaVenda(nome){
   const porNome=(pecas||[]).filter(p=>String(p.nome||p.modelo||'').trim().toLocaleLowerCase('pt-BR')===termo);
   return porNome.length===1?porNome[0]:null;
 }
+function rotuloVarianteVenda(v,p){
+  const props=v.propriedades||v.properties||{};
+  const detalhes=Object.entries(props).map(([k,val])=>k+': '+val).join(' · ');
+  const sku=v.sku||p.sku||'';
+  const estoque=v.estoque!==undefined?v.estoque:v.stock;
+  const saldo=estoque===null||estoque===undefined?'ilimitado':'saldo '+estoque;
+  return [detalhes||'Variante única',sku,saldo].filter(Boolean).join(' — ');
+}
+function aplicarVarianteSelecionadaVenda(linha,p,variantId,atualizarPreco=false){
+  const variantes=Array.isArray(p?.variantesNuvemshop)?p.variantesNuvemshop:[];
+  const select=linha?.querySelector('.v-produto-variante');
+  if(!linha||!p)return null;
+  let variante=null;
+  if(variantes.length===1)variante=variantes[0];
+  else if(variantes.length>1)variante=variantes.find(v=>String(v.id)===String(variantId||select?.value||''))||null;
+  if(variantes.length>1){
+    select.style.display='block';
+    select.innerHTML='<option value="">Selecione tamanho/cor</option>'+variantes.map(v=>'<option value="'+escaparHtmlSeguranca(v.id||'')+'">'+escaparHtmlSeguranca(rotuloVarianteVenda(v,p))+'</option>').join('');
+    if(variante)select.value=String(variante.id||'');
+    linha.style.gridTemplateColumns='minmax(0,1fr) minmax(135px,185px) 70px 112px 36px';
+    if(!variante){
+      delete linha.dataset.nuvemshopVariantId;
+      linha.dataset.sku=String(p.sku||'');
+      return null;
+    }
+  }else{
+    select.style.display='none';
+    select.innerHTML='';
+    linha.style.gridTemplateColumns='minmax(0,1fr) 70px 112px 36px';
+  }
+  const sku=variante?.sku||p.sku||'';
+  linha.dataset.sku=String(sku);
+  if(variante?.id)linha.dataset.nuvemshopVariantId=String(variante.id);
+  else delete linha.dataset.nuvemshopVariantId;
+  const preco=linha.querySelector('.v-produto-preco');
+  const precoCatalogo=Number(variante?.precoFinal||variante?.preco||p.precoPraticado||p.precoSugerido)||0;
+  if(preco&&(atualizarPreco||!preco.value.trim())&&precoCatalogo>0)setMoedaValue(preco,precoCatalogo);
+  linha.title='Produto vinculado: '+(sku||p.nome||'')+(variante?' · '+rotuloVarianteVenda(variante,p):'');
+  return variante;
+}
 function vincularProdutoVendaLinha(linha, atualizarPreco=false){
   if(!linha)return null;
   const input=linha.querySelector('.v-produto-nome');
-  const preco=linha.querySelector('.v-produto-preco');
   const p=localizarProdutoDaVenda(input?.value||'');
+  const preco=linha.querySelector('.v-produto-preco');
   if(!p){
     delete linha.dataset.produtoId;
     delete linha.dataset.sku;
     delete linha.dataset.custoUnitario;
     delete linha.dataset.nuvemshopProductId;
     delete linha.dataset.nuvemshopVariantId;
+    const select=linha.querySelector('.v-produto-variante');
+    select.style.display='none';select.innerHTML='';
+    linha.style.gridTemplateColumns='minmax(0,1fr) 70px 112px 36px';
     linha.title='Item sem vínculo com o catálogo';
     return null;
   }
   linha.dataset.produtoId=String(p.id);
-  linha.dataset.sku=String(p.sku||'');
   const custo=calcularCustoSnapshotProduto(p);
   if(custo===null)delete linha.dataset.custoUnitario;
   else linha.dataset.custoUnitario=String(custo);
   linha.dataset.nuvemshopProductId=String(p.nuvemshopProductId||'');
-  const variantes=Array.isArray(p.variantesNuvemshop)?p.variantesNuvemshop:[];
-  linha.dataset.nuvemshopVariantId=variantes.length===1?String(variantes[0].id||''):'';
-  linha.title='Produto vinculado: '+(p.sku||p.nome||'');
-  const precoCatalogo=Number(p.precoPraticado||p.precoSugerido)||0;
-  if(preco&&(atualizarPreco||!preco.value.trim())){
+  const priorVariant=linha.dataset.nuvemshopVariantId||'';
+  aplicarVarianteSelecionadaVenda(linha,p,priorVariant,atualizarPreco);
+  if(preco&&!preco.value.trim()){
+    const precoCatalogo=Number(p.precoPraticado||p.precoSugerido)||0;
     if(precoCatalogo>0)setMoedaValue(preco,precoCatalogo);
-    else preco.value='';
   }
   return p;
 }
@@ -1987,6 +2151,7 @@ function adicionarLinhaProduto(valor='',quantidade=1,itemSalvo=null){
   const linha=document.createElement('div');linha.className='v-produto-linha';
   linha.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) 70px 112px 36px;gap:7px;align-items:center';
   const input=document.createElement('input');input.type='text';input.className='v-produto-nome';input.setAttribute('list','v-produtos-sugestoes');input.autocomplete='off';input.placeholder='Buscar produto ou digitar descrição...';input.value=valor;input.style.width='100%';
+  const variante=document.createElement('select');variante.className='v-produto-variante';variante.style.cssText='display:none;width:100%;min-width:0;padding:8px 7px;border:1px solid var(--borda);border-radius:7px;font-size:11px;background:var(--fundo);color:var(--texto)';variante.setAttribute('aria-label','Tamanho ou cor');
   const qtd=document.createElement('input');qtd.type='number';qtd.className='v-produto-qtd';qtd.min='1';qtd.step='1';qtd.value=String(quantidade||1);qtd.title='Quantidade';qtd.setAttribute('aria-label','Quantidade');qtd.style.width='100%';
   const preco=document.createElement('input');preco.type='text';preco.className='v-produto-preco money-mask';preco.inputMode='decimal';preco.placeholder='Preço un.';preco.title='Preço unitário de referência';preco.setAttribute('aria-label','Preço unitário');preco.style.width='100%';
   if(itemSalvo&&itemSalvo.preco_unitario!==null&&itemSalvo.preco_unitario!==undefined){
@@ -2002,13 +2167,23 @@ function adicionarLinhaProduto(valor='',quantidade=1,itemSalvo=null){
   }
   input.addEventListener('change',()=>vincularProdutoVendaLinha(linha,true));
   input.addEventListener('blur',()=>{if(!linha.dataset.produtoId)vincularProdutoVendaLinha(linha,false);});
+  variante.addEventListener('change',()=>{
+    const p=localizarProdutoDaVenda(input.value);
+    if(p)aplicarVarianteSelecionadaVenda(linha,p,variante.value,true);
+  });
   const remover=document.createElement('button');remover.type='button';remover.className='btn-outline';remover.textContent='×';remover.title='Remover produto';remover.setAttribute('aria-label','Remover produto');remover.style.cssText='padding:7px 10px';
   remover.addEventListener('click',()=>{linha.remove();if(!lista.children.length)adicionarLinhaProduto();});
-  linha.append(input,qtd,preco,remover);lista.appendChild(linha);
+  linha.append(input,variante,qtd,preco,remover);lista.appendChild(linha);
   aplicarMascaraMoeda(preco);
-  if(itemSalvo&&itemSalvo.produto_id){
-    const encontrado=(pecas||[]).find(p=>String(p.id)===String(itemSalvo.produto_id));
-    linha.title='Produto vinculado: '+(itemSalvo.sku||encontrado?.sku||'');
+  const salvo=itemSalvo?.nuvemshop_variant_id||'';
+  const p=itemSalvo?.produto_id?(pecas||[]).find(p=>String(p.id)===String(itemSalvo.produto_id)):null;
+  if(p){
+    linha.dataset.produtoId=String(p.id);
+    linha.dataset.nuvemshopProductId=String(p.nuvemshopProductId||'');
+    aplicarVarianteSelecionadaVenda(linha,p,salvo,false);
+    linha.title='Produto vinculado: '+(itemSalvo.sku||p.sku||'');
+  }else if(valor){
+    vincularProdutoVendaLinha(linha,false);
   }
 }
 function lerProdutosVenda(){
@@ -2017,6 +2192,17 @@ function lerProdutosVenda(){
     const qtd=Math.max(1,parseInt(linha.querySelector('.v-produto-qtd')?.value,10)||1);
     return nome?(qtd>1?nome+' (x'+qtd+')':nome):'';
   }).filter(Boolean);
+}
+function validarVariantesVenda(){
+  for(const linha of document.querySelectorAll('#v-produtos-lista .v-produto-linha')){
+    const nome=linha.querySelector('.v-produto-nome')?.value.trim()||'';
+    if(!nome)continue;
+    const p=localizarProdutoDaVenda(nome);
+    if(p&&(p.variantesNuvemshop||[]).length>1&&!linha.dataset.nuvemshopVariantId){
+      return 'Selecione o tamanho ou a cor de "'+(p.nome||nome)+'" antes de registrar a venda.';
+    }
+  }
+  return '';
 }
 function lerItensVenda(){
   return [...document.querySelectorAll('#v-produtos-lista .v-produto-linha')].map(linha=>{
@@ -4560,6 +4746,7 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
   };
   const err=document.getElementById('v-err');
   if(!data||!canal||!descricao||entrada<=0){err.textContent='Preencha a data, canal, produto/descrição e um valor recebido maior que zero.';err.style.display='block';return;}
+  const erroVariante=validarVariantesVenda();if(erroVariante){err.textContent=erroVariante;err.style.display='block';return;}
   err.style.display='none';
   const actionButton=document.getElementById('btn-add-venda');
   if(actionButton.disabled)return;
@@ -4754,6 +4941,7 @@ document.querySelectorAll('.nav-item[data-page]').forEach(item=>{
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     document.getElementById('page-'+item.dataset.page).classList.add('active');
     if(item.dataset.page==='seguranca')carregarHistoricoSeguranca();
+    if(item.dataset.page==='estoque')atualizarEstoqueTela();
   });
 });
 
@@ -4764,6 +4952,10 @@ document.querySelectorAll('.nav-item.disabled').forEach(item=>{
 document.getElementById('f-data').valueAsDate = new Date();
 document.getElementById('v-data').valueAsDate = new Date();
 
+document.getElementById('btn-atualizar-estoque')?.addEventListener('click',atualizarEstoqueTela);
+document.getElementById('btn-salvar-ajuste-estoque')?.addEventListener('click',salvarContagemEstoque);
+document.getElementById('busca-estoque')?.addEventListener('input',renderEstoque);
+document.getElementById('filtro-estoque')?.addEventListener('change',renderEstoque);
 document.getElementById('busca-fluxo')?.addEventListener('input', renderFluxo);
 document.getElementById('busca-vendas')?.addEventListener('input', renderVendas);
 document.getElementById('busca-pecas')?.addEventListener('input', renderPecas);

@@ -932,7 +932,7 @@
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div class="card-title" style="margin-bottom:0">Auditoria financeira</div><span class="tag" id="auditoria-total">Carregando...</span></div>
       <div class="page-sub" style="margin:8px 0 12px">Mostra inclusões, edições e exclusões de lançamentos financeiros a partir da ativação da auditoria.</div>
-      <div class="table-scroll"><table><thead><tr><th>Data e hora</th><th>Operação</th><th>Lançamento</th><th>Valor</th></tr></thead><tbody id="auditoria-financeira-body"></tbody></table></div>
+      <div class="table-scroll"><table><thead><tr><th>Data e hora</th><th>Operação</th><th>Lançamento</th><th>Valor (antes → depois)</th><th></th></tr></thead><tbody id="auditoria-financeira-body"></tbody></table></div>
       <div class="empty" id="auditoria-financeira-empty" style="display:none"><i>—</i>Nenhuma alteração financeira registrada ainda.</div>
     </div>
   </div>
@@ -4574,7 +4574,7 @@ async function carregarHistoricoSeguranca(){
   const vb=document.getElementById('backup-versoes-body'),ab=document.getElementById('auditoria-financeira-body');
   if(!vb||!ab)return;
   vb.innerHTML='<tr><td colspan="5">Carregando versões...</td></tr>';
-  ab.innerHTML='<tr><td colspan="4">Carregando auditoria...</td></tr>';
+  ab.innerHTML='<tr><td colspan="5">Carregando auditoria...</td></tr>';
   try{
     const [vr,ar]=await Promise.all([
       sbClient.from('app_data_versions').select('id,data_key,operation,previous_updated_at,changed_by,changed_at').order('changed_at',{ascending:false}).limit(150),
@@ -4592,21 +4592,54 @@ async function carregarHistoricoSeguranca(){
     const audit=ar.data||[];
     document.getElementById('auditoria-financeira-empty').style.display=audit.length?'none':'block';
     ab.innerHTML=audit.map(a=>{
-      const r=a.after_data||a.before_data||{};
-      const op=a.operation==='INSERT'?'Inclusão':(a.operation==='DELETE'?'Exclusão':'Edição');
+      const antes=a.before_data||null, depois=a.after_data||null, r=depois||antes||{};
+      const exclusaoLogica=!!(antes&&depois&&!antes.deleted_at&&depois.deleted_at);
+      const op=a.operation==='INSERT'?'Inclusão':(a.operation==='DELETE'?'Exclusão':(exclusaoLogica?'Exclusão lógica':'Edição'));
       const descr=[r.data||'',r.descricao||r.categoria||'',r.cliente?('Cliente: '+r.cliente):''].filter(Boolean).join(' · ');
-      const val=Number(r.entrada||0)>0?Number(r.entrada):Number(r.saida||0);
-      return '<tr><td>'+escaparHtmlSeguranca(formatarDataHoraSeguranca(a.occurred_at))+'</td><td><span class="tag">'+op+'</span></td><td><strong>#'+Number(a.lancamento_id)+'</strong> '+escaparHtmlSeguranca(descr||'Lançamento financeiro')+'</td><td><span class="money-display">'+escaparHtmlSeguranca(fmtMoeda(val))+'</span></td></tr>';
+      const valorRegistro=x=>x?(Number(x.entrada||0)>0?Number(x.entrada):Number(x.saida||0)):0;
+      const valAntes=valorRegistro(antes),valDepois=valorRegistro(depois);
+      const valores=antes&&depois&&valAntes!==valDepois?fmtMoeda(valAntes)+' → '+fmtMoeda(valDepois):fmtMoeda(valorRegistro(r));
+      const acao=antes?'Restaurar anterior':'Desfazer inclusão';
+      return '<tr><td>'+escaparHtmlSeguranca(formatarDataHoraSeguranca(a.occurred_at))+'</td><td><span class="tag">'+op+'</span></td><td><strong>#'+Number(a.lancamento_id)+'</strong> '+escaparHtmlSeguranca(descr||'Lançamento financeiro')+'</td><td><span class="money-display">'+escaparHtmlSeguranca(valores)+'</span></td><td><button class="btn-outline" type="button" onclick="reverterLancamentoAudit('+Number(a.id)+')">'+acao+'</button></td></tr>';
     }).join('');
     if(!versoes.length)vb.innerHTML='';if(!audit.length)ab.innerHTML='';
   }catch(e){
     console.error('Erro ao carregar backups e auditoria:',e);
     vb.innerHTML='<tr><td colspan="5">Não foi possível carregar as versões. Nenhum dado foi alterado.</td></tr>';
-    ab.innerHTML='<tr><td colspan="4">Não foi possível carregar a auditoria.</td></tr>';
+    ab.innerHTML='<tr><td colspan="5">Não foi possível carregar a auditoria.</td></tr>';
     document.getElementById('backup-total').textContent='Erro de leitura';
     document.getElementById('auditoria-total').textContent='Erro de leitura';
   }
 }
+window.reverterLancamentoAudit=async function(auditId){
+  confirmarExclusao('Reverter esta alteração financeira? A operação de reversão também ficará registrada na auditoria. Nenhum registro será apagado definitivamente.',async ()=>{
+    try{
+      const {data:a,error}=await sbClient.from('lancamentos_financeiros_audit').select('id,lancamento_id,operation,before_data,after_data').eq('id',Number(auditId)).single();
+      if(error)throw error;
+      if(a.before_data){
+        const registro={...a.before_data,updated_at:new Date().toISOString(),deleted_at:a.before_data.deleted_at||null};
+        const {error:restoreError}=await sbClient.from('lancamentos_financeiros').upsert(registro,{onConflict:'id'});
+        if(restoreError)throw restoreError;
+      }else{
+        const {data:atual,error:readError}=await sbClient.from('lancamentos_financeiros').select('id').eq('id',Number(a.lancamento_id)).eq('user_id',AUTHORIZED_USER_ID).maybeSingle();
+        if(readError)throw readError;
+        if(atual){
+          const {error:undoError}=await sbClient.from('lancamentos_financeiros').update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',Number(a.lancamento_id)).eq('user_id',AUTHORIZED_USER_ID);
+          if(undoError)throw undoError;
+        }else{
+          throw new Error('O lançamento já não está ativo. Não foi feita nenhuma alteração.');
+        }
+      }
+      await carregarDados();
+      await carregarHistoricoSeguranca();
+      showToast('Lançamento revertido. A reversão foi registrada.');
+    }catch(e){
+      console.error('Erro ao reverter lançamento:',e);
+      showToast('Não foi possível reverter: '+e.message);
+    }
+  },'Reverter');
+};
+
 window.restaurarVersaoAppData=async function(id){
   confirmarExclusao('Restaurar esta versão do cadastro? O conteúdo atual será preservado automaticamente como uma nova versão antes da restauração.',async ()=>{
     try{

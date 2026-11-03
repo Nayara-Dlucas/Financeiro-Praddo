@@ -992,15 +992,23 @@ async function abrirPainelAutorizado(session) {
     return false;
   }
 
-  document.getElementById('auth-gate').style.display = 'none';
-  document.getElementById('app-shell').style.display = 'flex';
   document.getElementById('auth-user-email').textContent = user.email || 'Conta autorizada';
   document.getElementById('auth-message').textContent = '';
 
   if (!painelDadosInicializados) {
-    painelDadosInicializados = true;
-    await carregarDados();
+    document.getElementById('app-shell').style.display = 'none';
+    try {
+      await carregarDados();
+      painelDadosInicializados = true;
+    } catch (loadError) {
+      painelDadosInicializados = false;
+      console.error('Painel bloqueado para evitar exibição/salvamento de dados incompletos:', loadError);
+      mostrarLogin('Não foi possível carregar todos os dados. Nenhuma lista vazia foi salva. Verifique sua conexão e tente novamente.');
+      return false;
+    }
   }
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
   return true;
 }
 
@@ -1073,14 +1081,29 @@ window.storage = {
   async set(key, valueString){
     let parsed;
     try{ parsed = JSON.parse(valueString); }catch(e){ parsed = valueString; }
+    // Preserva a última versão confirmada antes de substituir o registro principal.
+    const { data: previous, error: readError } = await sbClient.from('app_data').select('value,updated_at').eq('key', key).maybeSingle();
+    if(readError){ showToastSafe('Não foi possível confirmar a versão atual. Salvamento cancelado para proteger os dados.'); throw readError; }
+    if(previous){
+      const backupKey = 'backup__' + key;
+      const backupValue = { saved_at: new Date().toISOString(), source_updated_at: previous.updated_at || null, value: previous.value };
+      const { error: backupError } = await sbClient.from('app_data').upsert({ key: backupKey, value: backupValue, updated_at: new Date().toISOString() });
+      if(backupError){ showToastSafe('Não foi possível criar backup da versão anterior. Salvamento cancelado.'); throw backupError; }
+    }
     const { error } = await sbClient.from('app_data').upsert({ key, value: parsed, updated_at: new Date().toISOString() });
     if(error){ showToastSafe('Erro ao salvar dados: '+error.message); throw error; }
-    return { key, value: valueString, shared: false };
+    return { key, value: valueString, shared: false, backupCreated: !!previous };
   },
   async delete(key){
+    const { data: previous, error: readError } = await sbClient.from('app_data').select('value,updated_at').eq('key', key).maybeSingle();
+    if(readError) throw readError;
+    if(previous){
+      const { error: backupError } = await sbClient.from('app_data').upsert({ key: 'backup__' + key, value: { saved_at: new Date().toISOString(), source_updated_at: previous.updated_at || null, value: previous.value }, updated_at: new Date().toISOString() });
+      if(backupError) throw backupError;
+    }
     const { error } = await sbClient.from('app_data').delete().eq('key', key);
     if(error) throw error;
-    return { key, deleted: true, shared: false };
+    return { key, deleted: true, backupCreated: !!previous, shared: false };
   }
 };
 
@@ -1256,74 +1279,74 @@ async function carregarDados(){
     }));
   }catch(e){
     console.error('Falha ao carregar lancamentos_financeiros:',e);
-    showToastSafe('Não foi possível sincronizar a base financeira. Atualize a página e tente novamente.');
-    lancamentos=[];
+    showToastSafe('Não foi possível sincronizar a base financeira.');
+    throw e;
   }
   try{
     const r2 = await window.storage.get('custos_loja_variaveis');
     custosVariaveis = r2 ? JSON.parse(r2.value) : [];
   }catch(e){
-    custosVariaveis = [];
+    throw new Error('Falha ao carregar custos variáveis: '+e.message);
   }
   try{
     const r3 = await window.storage.get('custos_loja_fixos');
     custosFixos = r3 ? JSON.parse(r3.value) : [];
   }catch(e){
-    custosFixos = [];
+    throw new Error('Falha ao carregar custos fixos: '+e.message);
   }
   try{
     const r4 = await window.storage.get('pecas_modelos');
     pecas = r4 ? JSON.parse(r4.value) : [];
   }catch(e){
-    pecas = [];
+    throw new Error('Falha ao carregar produtos: '+e.message);
   }
   try{
     const r5 = await window.storage.get('custos_loja_taxas');
     taxasPagamento = r5 ? JSON.parse(r5.value) : [];
   }catch(e){
-    taxasPagamento = [];
+    throw new Error('Falha ao carregar taxas: '+e.message);
   }
   try{
     const r6 = await window.storage.get('fornecedores_cadastro');
     fornecedores = r6 ? JSON.parse(r6.value) : [];
   }catch(e){
-    fornecedores = [];
+    throw new Error('Falha ao carregar fornecedores: '+e.message);
   }
   try{
     const r7 = await window.storage.get('fechamentos_caixa');
     fechamentos = r7 ? JSON.parse(r7.value) : [];
   }catch(e){
-    fechamentos = [];
+    throw new Error('Falha ao carregar fechamentos: '+e.message);
   }
   try{
     const r8 = await window.storage.get('crm_clientes');
     clientes = r8 ? JSON.parse(r8.value) : [];
   }catch(e){
-    clientes = [];
+    throw new Error('Falha ao carregar clientes: '+e.message);
   }
   try{
     const r9 = await window.storage.get('contas_pagar');
     contasPagar = r9 ? JSON.parse(r9.value) : [];
   }catch(e){
-    contasPagar = [];
+    throw new Error('Falha ao carregar contas a pagar: '+e.message);
   }
   try{
     const r10 = await window.storage.get('contas_receber');
     contasReceber = r10 ? JSON.parse(r10.value) : [];
   }catch(e){
-    contasReceber = [];
+    throw new Error('Falha ao carregar contas a receber: '+e.message);
   }
   try{
     const r11 = await window.storage.get('mei_config');
     meiConfig = r11 ? JSON.parse(r11.value) : {valor:0, venc:20};
   }catch(e){
-    meiConfig = {valor:0, venc:20};
+    throw new Error('Falha ao carregar configuração MEI: '+e.message);
   }
   try{
     const r12 = await window.storage.get('mei_taxas_avulsas');
     meiTaxasAvulsas = r12 ? JSON.parse(r12.value) : [];
   }catch(e){
-    meiTaxasAvulsas = [];
+    throw new Error('Falha ao carregar taxas MEI: '+e.message);
   }
   try{
     const r13 = await window.storage.get('contas_bancarias');
@@ -1333,29 +1356,25 @@ async function carregarDados(){
       {id:3, nome:'Mercado Livre', saldo:0}
     ];
   }catch(e){
-    contasBancarias = [
-      {id:1, nome:'Banco Inter', saldo:0},
-      {id:2, nome:'Cora', saldo:0},
-      {id:3, nome:'Mercado Livre', saldo:0}
-    ];
+    throw new Error('Falha ao carregar contas bancárias: '+e.message);
   }
   try{
     const r14 = await window.storage.get('reserva_emergencia');
     reservaEmergencia = r14 ? JSON.parse(r14.value) : {valor:0, atualizado:null};
   }catch(e){
-    reservaEmergencia = {valor:0, atualizado:null};
+    throw new Error('Falha ao carregar reserva de emergência: '+e.message);
   }
   try{
     const r15 = await window.storage.get('embaixadoras_cadastro');
     embaixadoras = r15 ? JSON.parse(r15.value) : [];
   }catch(e){
-    embaixadoras = [];
+    throw new Error('Falha ao carregar embaixadoras: '+e.message);
   }
   try{
     const rfp = await window.storage.get('custos_loja_frete_padrao');
     fretePadrao = rfp ? JSON.parse(rfp.value) : 2.00;
   }catch(e){
-    fretePadrao = 2.00;
+    throw new Error('Falha ao carregar frete padrão: '+e.message);
   }
   renderTudo();
 }

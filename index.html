@@ -76,6 +76,7 @@
   .field input:focus,.field select:focus{outline:none;border-color:var(--oliva)}
   .empty{text-align:center;padding:40px 20px;color:var(--texto-sec);font-size:13px}
   .empty i{font-size:28px;display:block;margin-bottom:10px;opacity:0.5}
+  .dashboard-executivo{margin:4px 0 22px}.dashboard-periodo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.dashboard-periodo>div{display:flex;flex-direction:column;gap:4px}.dashboard-periodo strong{font-size:15px;color:var(--graf)}.dashboard-eyebrow{font-size:10px;letter-spacing:1.1px;font-weight:700;color:var(--oliva)}.dashboard-status{font-size:11px;padding:5px 9px;border-radius:20px;background:var(--bege);color:var(--oliva);white-space:nowrap}.dashboard-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}.dashboard-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:7px;min-width:0}.dashboard-card.destaque{border-left:3px solid var(--oliva)}.dashboard-card span{font-size:12px;color:var(--texto-sec)}.dashboard-card strong{font-size:clamp(19px,2vw,25px);font-weight:650;color:var(--graf);white-space:nowrap}.dashboard-card strong.saida{color:var(--vermelho)}.dashboard-card small{font-size:11px;color:var(--texto-sec)}.dashboard-grid-secundario .dashboard-card{padding:13px 15px}.dashboard-grid-secundario .dashboard-card strong{font-size:19px}.dashboard-alerta{padding:12px 14px;border:1px solid #e8d8b4;background:#fbf7ed;border-radius:9px;font-size:12px;color:#725b2d}.dashboard-nota{font-size:11px;color:var(--texto-sec);margin:9px 2px 0}.section-subtitle{font-size:13px;font-weight:600;color:var(--texto-sec);margin:8px 0 12px}@media(max-width:900px){.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.dashboard-grid{grid-template-columns:1fr 1fr;gap:8px}.dashboard-card{padding:12px}.dashboard-card strong{font-size:17px}.dashboard-grid-secundario .dashboard-card strong{font-size:16px}}
   .hidden-val{filter:blur(6px);user-select:none}
   body.valores-ocultos .kpi-value,body.valores-ocultos .val-entrada,body.valores-ocultos .val-saida,body.valores-ocultos .saldo-col,body.valores-ocultos .money-display{filter:blur(6px);user-select:none}
   .table-scroll{overflow-x:auto}
@@ -185,9 +186,24 @@
       </div>
       
     </div>
-    <div style="margin-bottom:16px">
-      <button class="btn-outline" id="btn-exportar-backup">⬇ Exportar backup (.json)</button>
-    </div>
+    <section class="dashboard-executivo">
+      <div class="dashboard-periodo"><div><span class="dashboard-eyebrow">FECHAMENTO CONCILIADO</span><strong>01 a 24 de outubro de 2026</strong></div><span class="dashboard-status">Base oficial</span></div>
+      <div class="dashboard-grid">
+        <article class="dashboard-card destaque"><span>Saldo Inter no fechamento</span><strong class="money-display">R$ 2.085,65</strong><small>Saldo em 24/10/2026</small></article>
+        <article class="dashboard-card"><span>Vendas no período</span><strong class="money-display">R$ 1.991,37</strong><small>Site + presencial</small></article>
+        <article class="dashboard-card"><span>Despesas no período</span><strong class="money-display saida">R$ 1.898,10</strong><small>Saídas registradas</small></article>
+        <article class="dashboard-card"><span>Resultado operacional</span><strong class="money-display">R$ 93,27</strong><small>Vendas menos despesas</small></article>
+      </div>
+      <div class="dashboard-grid dashboard-grid-secundario">
+        <article class="dashboard-card compacto"><span>Porquinho — Caixa da loja</span><strong class="money-display">R$ 1.864,11</strong><small>Saldo após transferência real</small></article>
+        <article class="dashboard-card compacto"><span>Reserva de emergência</span><strong class="money-display">R$ 751,90</strong><small>Saldo mais recente registrado</small></article>
+        <article class="dashboard-card compacto"><span>Pró-labore retirado</span><strong class="money-display">R$ 199,14</strong><small>Valor efetivamente retirado</small></article>
+        <article class="dashboard-card compacto"><span>Reserva depositada no fechamento</span><strong class="money-display">R$ 22,40</strong><small>Depósito efetivamente realizado</small></article>
+      </div>
+      <div class="dashboard-alerta"><strong>Conciliação:</strong> diferença de R$ 156,01 permanece sem origem identificada. Nenhum valor foi atribuído por estimativa.</div>
+      <p class="dashboard-nota">Retrato do último fechamento conciliado, não saldo bancário em tempo real. Atualize o próximo fechamento para substituir esta referência.</p>
+    </section>
+    <div style="margin-bottom:16px"><button class="btn-outline" id="btn-exportar-backup">⬇ Exportar backup (.json)</button></div>
 
 
     <div class="kpi-grid">
@@ -220,24 +236,7 @@
       </div>
     </div>
 
-    <div class="kpi-grid">
-      <div class="kpi-card accent">
-        <div class="kpi-label">Saldo atual</div>
-        <div class="kpi-value" id="kpi-saldo">R$ 0,00</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Entradas no mês</div>
-        <div class="kpi-value positivo" id="kpi-entradas">R$ 0,00</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Saídas no mês</div>
-        <div class="kpi-value negativo" id="kpi-saidas">R$ 0,00</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Lucro do mês</div>
-        <div class="kpi-value" id="kpi-lucro">R$ 0,00</div>
-      </div>
-    </div>
+    <div class="section-subtitle">Indicadores operacionais</div>
 
     <div class="card">
       <div class="card-title">Contas bancárias</div>
@@ -268,7 +267,7 @@
     </div>
 
     <div class="card">
-      <div class="card-title">Entradas x saídas (últimos 6 meses)</div>
+      <div class="card-title">Movimentações registradas — últimos 6 meses</div><div class="page-sub" style="margin-bottom:10px">O gráfico considera os lançamentos existentes no painel; períodos sem conciliação completa podem apresentar valores parciais.</div>
       <div class="chart-wrap"><canvas id="chart-fluxo" role="img" aria-label="Gráfico de entradas e saídas por mês"></canvas></div>
     </div>
   </div>

@@ -1432,6 +1432,12 @@ async function carregarDados(){
   }catch(e){
     throw new Error('Falha ao carregar frete padrão: '+e.message);
   }
+  try{
+    await carregarDadosEstoque();
+  }catch(estoqueError){
+    estoqueVariantes=[];
+    console.error('Não foi possível carregar o saldo interno de estoque:',estoqueError);
+  }
   renderTudo();
 }
 
@@ -2080,8 +2086,15 @@ function rotuloVarianteVenda(v,p){
   const props=v.propriedades||v.properties||{};
   const detalhes=Object.entries(props).map(([k,val])=>k+': '+val).join(' · ');
   const sku=v.sku||p.sku||'';
-  const estoque=v.estoque!==undefined?v.estoque:v.stock;
-  const saldo=estoque===null||estoque===undefined?'ilimitado':'saldo '+estoque;
+  const estoqueInterno=(estoqueVariantes||[]).find(x=>String(x.nuvemshop_variant_id||'')===String(v.id||''));
+  let saldo;
+  if(estoqueInterno){
+    saldo=estoqueInterno.status_estoque==='controlado'?'saldo interno '+estoqueInterno.saldo_atual:
+      estoqueInterno.status_estoque==='ilimitado'?'ilimitado':'aguardando contagem';
+  }else{
+    const estoque=v.estoque!==undefined?v.estoque:v.stock;
+    saldo=estoque===null||estoque===undefined?'ilimitado':'saldo loja '+estoque;
+  }
   return [detalhes||'Variante única',sku,saldo].filter(Boolean).join(' — ');
 }
 function aplicarVarianteSelecionadaVenda(linha,p,variantId,atualizarPreco=false){
@@ -4777,6 +4790,7 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
     }
     if(vendaSalva&&vendaSalva.id)window.gerarPdfVenda(vendaSalva.id);
     limparFormularioVenda();renderTudo();
+    try{await carregarDadosEstoque();}catch(stockRefreshError){console.error('Venda salva, mas não foi possível atualizar o estoque em tela:',stockRefreshError);showToast('Venda salva. Atualize a tela de estoque para conferir o saldo.');}
   }finally{actionButton.disabled=false;}
 });
 

@@ -330,6 +330,38 @@
       </div>
       <div class="err" id="v-err"></div>
     </div>
+    <div class="card" id="card-integracao-nuvemshop">
+      <div class="card-title">Integração com a Nuvemshop</div>
+      <div class="page-sub" style="margin-bottom:12px">Depois de autorizar o aplicativo privado, o painel envia os saldos internos para a loja e recebe pedidos para reconciliar o estoque. O token fica protegido no Vault do Supabase e não é exibido nesta tela.</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="tag" id="nuvemshop-status">Verificando conexão…</span>
+        <span class="page-sub" id="nuvemshop-status-detalhe"></span>
+      </div>
+      <div class="form-grid" style="grid-template-columns:minmax(140px,1fr) minmax(220px,2fr) auto;align-items:end">
+        <div class="field"><label for="nuvemshop-app-id">ID do aplicativo</label><input type="text" id="nuvemshop-app-id" inputmode="numeric" placeholder="ID do app"></div>
+        <div class="field"><label for="nuvemshop-app-secret">Client Secret do aplicativo</label><input type="password" id="nuvemshop-app-secret" autocomplete="off" placeholder="Cole o segredo privado do app"></div>
+        <button type="button" class="btn" id="btn-nuvemshop-conectar">Conectar / autorizar</button>
+      </div>
+      <div class="page-sub" style="margin-top:10px">Cadastre no Portal de Parceiros a URL de retorno abaixo e os escopos <strong>read_orders</strong>, <strong>read_products</strong> e <strong>write_products</strong>. O segredo será enviado por HTTPS ao backend e guardado no Vault; ele não será salvo no navegador.</div>
+      <div class="field" style="margin-top:9px"><label>URL de retorno OAuth (copie para o Portal de Parceiros)</label><input type="text" id="nuvemshop-callback-url" readonly value="https://fulggjkqpxuyvooqunyb.supabase.co/functions/v1/nuvemshop-bridge?mode=oauth_callback"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button type="button" class="btn-outline" id="btn-nuvemshop-sync">Sincronizar estoque pendente</button>
+        <button type="button" class="btn-outline" id="btn-nuvemshop-webhooks">Reconfigurar recebimento de pedidos</button>
+      </div>
+      <div class="err" id="nuvemshop-erro" style="margin-top:10px"></div>
+      <div class="page-sub" id="nuvemshop-resultado" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pedidos recebidos da Nuvemshop</div>
+      <div class="page-sub" style="margin-bottom:10px">Pedidos novos e atualizados chegam por webhook. O painel confere o saldo real da variante na Nuvemshop; não cria uma segunda baixa de estoque.</div>
+      <div class="table-scroll">
+        <table id="tabela-pedidos-nuvemshop">
+          <thead><tr><th>Pedido</th><th>Data</th><th>Pagamento</th><th>Status</th><th>Itens</th><th>Total</th></tr></thead>
+          <tbody id="tabela-pedidos-nuvemshop-body"></tbody>
+        </table>
+        <div class="empty" id="nuvemshop-pedidos-empty"><i>—</i>Nenhum pedido recebido ainda. A lista começa a ser preenchida após a conexão e o cadastro dos webhooks.</div>
+      </div>
+    </div>
     <div class="peca-kpi-grid" style="margin-bottom:16px">
       <div class="kpi-card"><div class="kpi-label">Vendas registradas</div><div class="kpi-value" id="vendas-total">R$ 0,00</div></div>
       <div class="kpi-card"><div class="kpi-label">Vendas deste mês</div><div class="kpi-value" id="vendas-mes">R$ 0,00</div></div>
@@ -350,7 +382,7 @@
     <div class="page-header">
       <div>
         <div class="page-title">Estoque</div>
-        <div class="page-sub">Controle interno por produto e variante. O saldo inicial foi lido da Nuvemshop em 03/11/2026; ajustes aqui não alteram automaticamente a loja online.</div>
+        <div class="page-sub">Controle por produto e variante. Ao conectar a loja, vendas registradas no painel atualizam a Nuvemshop e pedidos do site reconciliam o saldo interno.</div>
       </div>
       <button type="button" class="btn-outline" id="btn-atualizar-estoque">Atualizar estoque</button>
     </div>
@@ -1180,6 +1212,7 @@ let contasBancarias = [];
 let reservaEmergencia = {valor:0, atualizado:null};
 let embaixadoras = [];
 let estoqueVariantes = [];
+let nuvemshopPedidos = [];
 let valoresOcultos = false;
 let chartFluxo = null;
 
@@ -1593,11 +1626,134 @@ async function salvarFretePadrao(){
 }
 
 async function carregarDadosEstoque(){
-  const {data,error}=await sbClient.from('estoque_variantes').select('*').order('nome_produto').limit(2000);
-  if(error)throw error;
-  estoqueVariantes=data||[];
+  const [stockResult,ordersResult]=await Promise.all([
+    sbClient.from('estoque_variantes').select('*').order('nome_produto').limit(2000),
+    sbClient.from('nuvemshop_pedidos').select('numero_pedido,status_pedido,status_pagamento,status_envio,total,moeda,cliente,itens,criado_em,updated_at').order('criado_em',{ascending:false}).limit(30)
+  ]);
+  if(stockResult.error)throw stockResult.error;
+  if(ordersResult.error)throw ordersResult.error;
+  estoqueVariantes=stockResult.data||[];
+  nuvemshopPedidos=ordersResult.data||[];
   renderEstoque();
+  renderPedidosNuvemshop();
+  await carregarStatusNuvemshop();
 }
+async function chamarNuvemshopBridge(body){
+  const {data,error}=await sbClient.functions.invoke('nuvemshop-bridge',{body});
+  if(error)throw error;
+  if(data&&data.error)throw new Error(data.error);
+  return data||{};
+}
+function exibirErroNuvemshop(msg){
+  const el=document.getElementById('nuvemshop-erro');
+  if(el){el.textContent=msg||'';el.style.display=msg?'block':'none';}
+}
+async function carregarStatusNuvemshop(){
+  const statusEl=document.getElementById('nuvemshop-status');
+  const detalhe=document.getElementById('nuvemshop-status-detalhe');
+  if(!statusEl)return;
+  try{
+    const s=await chamarNuvemshopBridge({action:'status'});
+    if(s.connected){
+      statusEl.textContent='Conectada';
+      statusEl.style.background='#e7efe3';
+      statusEl.style.color='#45603e';
+      detalhe.textContent='Loja conectada · '+(s.pending_stock||0)+' atualização(ões) pendente(s) · '+(s.orders_received||0)+' pedido(s) recebido(s)';
+    }else{
+      statusEl.textContent=s.status==='aguardando_autorizacao'?'Aguardando autorização':'Não conectada';
+      statusEl.style.background='';
+      statusEl.style.color='';
+      detalhe.textContent='O estoque interno continua ativo; a loja online ainda não recebe atualizações do painel.';
+    }
+    exibirErroNuvemshop(s.last_error||'');
+    const result=document.getElementById('nuvemshop-resultado');
+    if(result&&s.last_webhook_at)result.textContent='Último pedido recebido: '+new Date(s.last_webhook_at).toLocaleString('pt-BR');
+  }catch(e){
+    statusEl.textContent='Backend indisponível';
+    statusEl.style.background='';
+    statusEl.style.color='';
+    detalhe.textContent='Não foi possível consultar o estado da conexão.';
+    exibirErroNuvemshop(e.message);
+  }
+}
+async function iniciarConexaoNuvemshop(){
+  const appId=document.getElementById('nuvemshop-app-id').value.trim();
+  const secretEl=document.getElementById('nuvemshop-app-secret');
+  const secret=secretEl.value;
+  const btn=document.getElementById('btn-nuvemshop-conectar');
+  if(!appId||!secret){exibirErroNuvemshop('Informe o ID e o Client Secret do aplicativo privado criado no Portal de Parceiros.');return;}
+  btn.disabled=true;exibirErroNuvemshop('');
+  try{
+    const result=await chamarNuvemshopBridge({action:'start_oauth',app_id:appId,client_secret:secret});
+    secretEl.value='';
+    const out=document.getElementById('nuvemshop-resultado');
+    if(out)out.textContent='Redirecionando para a autorização oficial da Nuvemshop…';
+    window.location.assign(result.authorization_url);
+  }catch(e){
+    secretEl.value='';
+    exibirErroNuvemshop('Não foi possível iniciar a conexão: '+e.message);
+    btn.disabled=false;
+  }
+}
+async function sincronizarNuvemshopManual(){
+  const btn=document.getElementById('btn-nuvemshop-sync');
+  if(btn.disabled)return;
+  btn.disabled=true;exibirErroNuvemshop('');
+  try{
+    const result=await chamarNuvemshopBridge({action:'sync_stock'});
+    if(!result.connected){
+      exibirErroNuvemshop('Conecte a Nuvemshop antes de enviar os saldos.');
+    }else{
+      const erros=(result.results||[]).filter(x=>x.status==='erro');
+      const out=document.getElementById('nuvemshop-resultado');
+      if(out)out.textContent=(result.processed||0)+' variante(s) processada(s); '+(result.pending||0)+' pendência(s) restante(s).';
+      if(erros.length)exibirErroNuvemshop(erros.length+' variante(s) não foram atualizadas. Consulte a fila e tente novamente.');
+      else showToast('Sincronização concluída.');
+    }
+    await carregarStatusNuvemshop();
+  }catch(e){exibirErroNuvemshop('Falha na sincronização: '+e.message);}
+  finally{btn.disabled=false;}
+}
+async function reconfigurarWebhooksNuvemshop(){
+  const btn=document.getElementById('btn-nuvemshop-webhooks');
+  btn.disabled=true;exibirErroNuvemshop('');
+  try{
+    const result=await chamarNuvemshopBridge({action:'register_webhooks'});
+    const out=document.getElementById('nuvemshop-resultado');
+    if(out)out.textContent='Recebimento de pedidos configurado: '+(result.webhooks||[]).map(x=>x.event).join(', ')+'.';
+    showToast('Webhooks atualizados.');
+    await carregarStatusNuvemshop();
+  }catch(e){exibirErroNuvemshop('Não foi possível configurar os pedidos: '+e.message);}
+  finally{btn.disabled=false;}
+}
+async function sincronizarNuvemshopAposMovimentacao(){
+  try{
+    const result=await chamarNuvemshopBridge({action:'sync_stock'});
+    if(result.connected && (result.pending>0 || (result.results||[]).some(x=>x.status==='erro'))){
+      showToast('Movimentação salva; há atualização da Nuvemshop pendente. Confira Estoque.');
+    }
+    return result;
+  }catch(e){
+    console.error('Falha na sincronização automática da Nuvemshop:',e);
+    showToast('Movimentação salva no painel; a sincronização com a Nuvemshop precisa ser conferida.');
+    return null;
+  }
+}
+function renderPedidosNuvemshop(){
+  const body=document.getElementById('tabela-pedidos-nuvemshop-body');
+  const table=document.getElementById('tabela-pedidos-nuvemshop');
+  const empty=document.getElementById('nuvemshop-pedidos-empty');
+  if(!body||!table||!empty)return;
+  if(!nuvemshopPedidos.length){body.innerHTML='';table.style.display='none';empty.style.display='block';return;}
+  table.style.display='table';empty.style.display='none';
+  body.innerHTML=nuvemshopPedidos.map(p=>{
+    const itens=(p.itens||[]).map(i=>(i.nome||'Produto')+' × '+Number(i.quantidade||1)).join(' · ');
+    const data=p.criado_em?new Date(p.criado_em).toLocaleDateString('pt-BR'):'—';
+    const total=p.total===null||p.total===undefined?'—':fmtMoeda(p.total);
+    return '<tr><td><strong>#'+escaparHtmlSeguranca(p.numero_pedido||'—')+'</strong></td><td>'+escaparHtmlSeguranca(data)+'</td><td>'+escaparHtmlSeguranca(p.status_pagamento||'—')+'</td><td>'+escaparHtmlSeguranca(p.status_pedido||'—')+'</td><td>'+escaparHtmlSeguranca(itens||'—')+'</td><td>'+escaparHtmlSeguranca(total)+'</td></tr>';
+  }).join('');
+}
+
 function formatarPropriedadesEstoque(obj){
   if(!obj||typeof obj!=='object')return '—';
   const parts=Object.entries(obj).map(([k,v])=>k+': '+v);
@@ -1664,6 +1820,7 @@ async function salvarContagemEstoque(){
     document.getElementById('estoque-ajuste-qtd').value='';
     document.getElementById('estoque-ajuste-obs').value='';
     await carregarDadosEstoque();
+    await sincronizarNuvemshopAposMovimentacao();
     showToast('Contagem registrada e histórico atualizado.');
   }catch(e){
     console.error('Erro ao registrar contagem de estoque:',e);
@@ -4790,7 +4947,7 @@ document.getElementById('btn-add-venda').addEventListener('click',async ()=>{
     }
     if(vendaSalva&&vendaSalva.id)window.gerarPdfVenda(vendaSalva.id);
     limparFormularioVenda();renderTudo();
-    try{await carregarDadosEstoque();}catch(stockRefreshError){console.error('Venda salva, mas não foi possível atualizar o estoque em tela:',stockRefreshError);showToast('Venda salva. Atualize a tela de estoque para conferir o saldo.');}
+    try{await carregarDadosEstoque();await sincronizarNuvemshopAposMovimentacao();}catch(stockRefreshError){console.error('Venda salva, mas não foi possível atualizar o estoque em tela:',stockRefreshError);showToast('Venda salva. Atualize a tela de estoque para conferir o saldo.');}
   }finally{actionButton.disabled=false;}
 });
 
@@ -4966,6 +5123,9 @@ document.querySelectorAll('.nav-item.disabled').forEach(item=>{
 document.getElementById('f-data').valueAsDate = new Date();
 document.getElementById('v-data').valueAsDate = new Date();
 
+document.getElementById('btn-nuvemshop-conectar')?.addEventListener('click',iniciarConexaoNuvemshop);
+document.getElementById('btn-nuvemshop-sync')?.addEventListener('click',sincronizarNuvemshopManual);
+document.getElementById('btn-nuvemshop-webhooks')?.addEventListener('click',reconfigurarWebhooksNuvemshop);
 document.getElementById('btn-atualizar-estoque')?.addEventListener('click',atualizarEstoqueTela);
 document.getElementById('btn-salvar-ajuste-estoque')?.addEventListener('click',salvarContagemEstoque);
 document.getElementById('busca-estoque')?.addEventListener('input',renderEstoque);

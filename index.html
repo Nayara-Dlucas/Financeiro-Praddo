@@ -4576,7 +4576,7 @@ async function carregarHistoricoSeguranca(){
       sbClient.from('lancamentos_financeiros_audit').select('id,lancamento_id,operation,before_data,after_data,actor_id,occurred_at').order('occurred_at',{ascending:false}).limit(150)
     ]);
     if(vr.error)throw vr.error;if(ar.error)throw ar.error;
-    const versoes=(vr.data||[]).filter(v=>!String(v.data_key||'').startsWith('backup__'));
+    const versoes=(vr.data||[]).filter(v=>{const k=String(v.data_key||'');return !k.startsWith('backup__')&&!/_backup_/i.test(k);});
     document.getElementById('backup-total').textContent=versoes.length+' versões';
     document.getElementById('auditoria-total').textContent=(ar.data||[]).length+' alterações';
     document.getElementById('backup-versoes-empty').style.display=versoes.length?'none':'block';
@@ -4640,7 +4640,7 @@ window.restaurarVersaoAppData=async function(id){
     try{
       const {data,error}=await sbClient.from('app_data_versions').select('id,data_key,snapshot,operation').eq('id',Number(id)).single();
       if(error)throw error;
-      if(!data||!data.data_key||String(data.data_key).startsWith('backup__'))throw new Error('Versão inválida para restauração.');
+      if(!data||!data.data_key||String(data.data_key).startsWith('backup__')||/_backup_/i.test(String(data.data_key)))throw new Error('Esta é uma cópia de segurança auxiliar, não um cadastro restaurável.');
       await window.storage.set(data.data_key,JSON.stringify(data.snapshot));
       await carregarDados();
       await carregarHistoricoSeguranca();

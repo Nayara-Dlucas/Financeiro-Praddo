@@ -2972,8 +2972,14 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
   const {total: embalagensTotal, selecionados} = calcularEmbalagensSelecionadas();
   const err = document.getElementById('pc-err');
 
-  if(!nome || custoProduto<=0 || margem<=0){
-    err.textContent = 'Preencha ao menos nome, custo do produto e margem de lucro.';
+  const precoPraticadoInput = getMoedaValue(document.getElementById('pc-praticado'));
+  const produtoEmPrecificacao = editandoPecaId
+    ? pecas.find(p=>p.id===editandoPecaId)?.precificacaoPendente === true
+    : false;
+  if(!nome || custoProduto<=0 || margem<=0 || (produtoEmPrecificacao && precoPraticadoInput<=0)){
+    err.textContent = produtoEmPrecificacao
+      ? 'Informe o preço de venda manual para concluir a precificação deste produto.'
+      : 'Preencha ao menos nome, custo do produto e margem de lucro.';
     err.style.display = 'block';
     return;
   }
@@ -2993,10 +2999,11 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
     const taxasPercentual = taxasMarcadas;
     const r = calcularPrecificacao({custoProduto, custosAdd, frete, extras, margem, taxasPercentual, embalagensTotal});
     const praticadoInput = getMoedaValue(document.getElementById('pc-praticado'));
-    const precoPraticado = praticadoInput>0 ? praticadoInput : r.precoSugerido;
+    const precoPraticado = praticadoInput>0 ? praticadoInput : (p.precificacaoPendente ? 0 : r.precoSugerido);
     Object.assign(p, {
       sku, nome, categoria, infantil, tamanho, custoProduto, custosAdd, frete, extras, margem, taxasPercentual,
-      embalagens: selecionados, precoSugerido: r.precoSugerido, precoPraticado
+      embalagens: selecionados, precoSugerido: r.precoSugerido, precoPraticado,
+      precificacaoPendente: p.precificacaoPendente ? !(praticadoInput>0) : false
     });
     editandoPecaId = null;
     document.getElementById('btn-add-peca').textContent = 'Cadastrar modelo';
@@ -3029,6 +3036,7 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
   document.getElementById('pc-extras').value='';
   document.getElementById('pc-margem').value='';
   document.getElementById('pc-praticado').value='';
+  document.getElementById('pc-praticado').placeholder='Deixe em branco pra usar o sugerido';
   document.getElementById('pc-tamanho').value='';
   document.getElementById('pc-infantil').checked=false;
   document.querySelectorAll('.pc-embal-check').forEach(chk=>{
@@ -3067,8 +3075,15 @@ window.editarPeca = function(id){
   setMoedaValue(document.getElementById('pc-custosadd'), p.custosAdd||0);
   setMoedaValue(document.getElementById('pc-frete'), p.frete||0);
   setMoedaValue(document.getElementById('pc-extras'), p.extras||0);
-  document.getElementById('pc-margem').value = p.margem||0;
-  setMoedaValue(document.getElementById('pc-praticado'), p.precoPraticado||0);
+  document.getElementById('pc-margem').value = p.precificacaoPendente ? (Number(p.margem)||110) : (p.margem||0);
+  const precoInput = document.getElementById('pc-praticado');
+  setMoedaValue(precoInput, p.precoPraticado||0);
+  if(p.precificacaoPendente){
+    precoInput.value = '';
+    precoInput.placeholder = 'Informe o preço de venda manual';
+  }else{
+    precoInput.placeholder = 'Deixe em branco pra usar o sugerido';
+  }
 
   // marca embalagens que já estavam selecionadas nessa peça
   document.querySelectorAll('.pc-embal-check').forEach(chk=>{

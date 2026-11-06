@@ -3416,8 +3416,9 @@ function renderPecas(){
     if(p.origem === 'nuvemshop') return renderProdutoNuvemshop(p);
     const embalagensTotal = (p.embalagens||[]).reduce((s,e)=> s+e.unit*e.qtd, 0);
     const r = calcularPrecificacao({custoProduto:p.custoProduto, custosAdd:p.custosAdd, frete:p.frete, extras:p.extras, margem:p.margem, taxasPercentual:p.taxasPercentual, embalagensTotal});
-    const precoPraticado = p.precoPraticado || r.precoSugerido || 0;
-    const lucro = precoPraticado - r.custoTotal - precoPraticado*((p.taxasPercentual||0)/100);
+    const aguardandoPrecificacao = p.precificacaoPendente === true;
+    const precoPraticado = aguardandoPrecificacao ? 0 : (p.precoPraticado || r.precoSugerido || 0);
+    const lucro = aguardandoPrecificacao ? null : precoPraticado - r.custoTotal - precoPraticado*((p.taxasPercentual||0)/100);
     const margemReal = precoPraticado>0 ? (lucro/precoPraticado*100) : 0;
     const markupPraticado = (Number(p.custoProduto)||0)>0 ? (lucro/(Number(p.custoProduto)||1)*100) : 0;
     const comprasTotal = (p.compras||[]).length;
@@ -3430,7 +3431,7 @@ function renderPecas(){
           +'<span style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.nome+'</span>'
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'
-          +'<span style="font-size:15px;font-weight:600;color:var(--oliva-escuro)">'+fmtMoeda(precoPraticado)+'</span>'
+          +'<span style="font-size:13px;font-weight:600;color:var(--oliva-escuro)">'+(aguardandoPrecificacao?'A precificar':fmtMoeda(precoPraticado))+'</span>'
           +'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
         +'</div>'
       +'</div>'
@@ -3443,16 +3444,18 @@ function renderPecas(){
         +'</div>'
       +'</div>'
       +'<button class="btn-outline" onclick="abrirSeletorPosicao('+p.id+')" style="margin-bottom:12px">🏷 Imprimir etiqueta</button>'
-      +'<div class="peca-kpi-grid">'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custos antes das taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotal)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Taxas estimadas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.taxasValor)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custo total com taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotalComTaxas)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço sugerido</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.precoSugerido)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço praticado</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(precoPraticado)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro líquido</div><div style="font-size:15px;font-weight:600" class="'+(lucro>=0?'positivo':'negativo')+'">'+fmtMoeda(lucro)+'</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Margem real</div><div style="font-size:15px;font-weight:600">'+margemReal.toFixed(1)+'%</div></div>'
-        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro sobre custo da joia</div><div style="font-size:15px;font-weight:600">'+markupPraticado.toFixed(1)+'%</div></div>'
-      +'</div>'
+      +(aguardandoPrecificacao
+        ? '<div class="kpi-card" style="padding:14px 16px;margin-bottom:14px"><div class="kpi-label">Custo de aquisição unitário</div><div style="font-size:19px;font-weight:700">'+fmtMoeda(p.custoProduto)+'</div><div style="font-size:12px;color:var(--texto-sec);margin-top:7px">Quantidade na nota: '+(Number(p.quantidadeNota)||0)+' unidade(s)</div><div style="font-size:12px;color:var(--texto-sec);margin-top:4px">Variações: '+(p.variacoesNota||[]).join(', ')+'</div><div style="font-size:12px;color:var(--oliva);font-weight:600;margin-top:8px">Preço de venda ainda não definido.</div></div>'
+        : '<div class="peca-kpi-grid">'
+          +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custos antes das taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotal)+'</div></div>'
+          +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Taxas estimadas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.taxasValor)+'</div></div>'
+          +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custo total com taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.custoTotalComTaxas)+'</div></div>'
+          +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço sugerido</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(r.precoSugerido)+'</div></div>'
+          +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço praticado</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(precoPraticado)+'</div></div>'
+          +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro líquido</div><div style="font-size:15px;font-weight:600" class="'+(lucro>=0?'positivo':'negativo')+'">'+fmtMoeda(lucro)+'</div></div>'
+          +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Margem real</div><div style="font-size:15px;font-weight:600">'+margemReal.toFixed(1)+'%</div></div>'
+          +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro sobre custo da joia</div><div style="font-size:15px;font-weight:600">'+markupPraticado.toFixed(1)+'%</div></div>'
+          +'</div>')
       +'<button class="btn-outline" onclick="toggleCompras('+p.id+')" id="btn-compras-'+p.id+'">Ver compras ('+comprasTotal+')</button>'
       +'<div id="compras-'+p.id+'" style="display:none;margin-top:14px">'
         +'<div class="form-grid" style="grid-template-columns:1fr 130px 80px 100px 90px auto">'

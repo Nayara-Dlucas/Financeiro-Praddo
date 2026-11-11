@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Praddo Painel</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
@@ -1051,6 +1052,21 @@
 <datalist id="lista-fornecedores-nomes"></datalist>
 <datalist id="lista-clientes-nomes"></datalist>
 </div><!-- /#app-shell -->
+
+<script>
+/* Proteção do formulário: impede recarga silenciosa se algum script essencial falhar. */
+document.addEventListener('submit', function(event) {
+  if (event.target && event.target.id === 'auth-form') {
+    event.preventDefault();
+    if (typeof window.entrarPainel !== 'function') {
+      const msg = document.getElementById('auth-message');
+      if (msg) msg.textContent = 'O sistema de acesso não carregou corretamente. Atualize a página em alguns instantes.';
+      const button = document.getElementById('btn-entrar');
+      if (button) { button.disabled = false; button.textContent = 'Entrar no painel'; }
+    }
+  }
+}, true);
+</script>
 
 <script>
 let lancamentos = [];

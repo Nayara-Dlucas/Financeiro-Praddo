@@ -3136,8 +3136,9 @@ function renderProdutoNuvemshop(p){
         +(promoExiste?'<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho);flex-shrink:0">Promoção</span>':'')
         +'<span style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escaparHtml(p.nome||'Produto sem nome')+'</span>'
       +'</div>'
-      +'<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
         +'<span style="font-size:13px;font-weight:600;color:var(--oliva-escuro)">'+escaparHtml(precoPrincipal)+'</span>'
+        +'<button type="button" class="btn-outline" style="font-size:11px;padding:5px 9px;white-space:nowrap" onclick="event.stopPropagation();editarProdutoNuvemshop('+p.id+')" aria-label="Editar produto">✎ Editar</button>'
         +'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
       +'</div>'
     +'</div>'
@@ -3155,9 +3156,16 @@ function renderProdutoNuvemshop(p){
         +'<div><strong>Variações:</strong> '+variantes.length+' · <strong>Fotos na loja:</strong> '+Number(p.quantidadeImagensNuvemshop||0)+'</div>'
         +(p.marcaNuvemshop?'<div><strong>Marca:</strong> '+escaparHtml(p.marcaNuvemshop)+'</div>':'')
       +'</div>'
-      +'<div style="background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:12px;margin-bottom:14px"><div style="font-size:13px;font-weight:600;margin-bottom:8px">Precificação interna do painel</div>'
-      +'<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;line-height:1.7"><span>Custo total: <strong>'+fmtMoeda(calcularPrecificacao({custoProduto:p.custoProduto,custosAdd:p.custosAdd,frete:p.frete,extras:p.extras,margem:p.margem,taxasPercentual:p.taxasPercentual,embalagensTotal:(p.embalagens||[]).reduce((s,e)=>s+(Number(e.unit)||0)*(Number(e.qtd)||0),0)}).custoTotal)+'</strong></span><span>Preço sugerido: <strong style="color:var(--oliva-escuro)">'+fmtMoeda(p.precoSugerido||0)+'</strong></span><span>Margem desejada: <strong>'+Number(p.margem||0).toLocaleString("pt-BR")+'%</strong></span><span>Taxas: <strong>'+Number(p.taxasPercentual||0).toLocaleString("pt-BR")+'%</strong></span></div>'
-      +'<div style="font-size:11px;color:var(--texto-sec);margin-top:6px">O preço sugerido é uma conta interna e não altera os preços da loja.</div></div>'
+      +(()=>{const embalagensTotal=(p.embalagens||[]).reduce((s,e)=>s+(Number(e.unit)||0)*(Number(e.qtd)||0),0);const calc=calcularPrecificacao({custoProduto:p.custoProduto,custosAdd:p.custosAdd,frete:p.frete,extras:p.extras,margem:p.margem,taxasPercentual:p.taxasPercentual,embalagensTotal});const praticado=Number(p.precoPraticado||minimo||0);const lucro=praticado-calc.custoTotalComTaxas;const margemReal=praticado>0?lucro/praticado*100:0;const markup=calc.custoTotalComTaxas>0?lucro/calc.custoTotalComTaxas*100:0;return '<div class="peca-kpi-grid">'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custos antes das taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(calc.custoTotal)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Taxas estimadas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(calc.taxasValor)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custo total com taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(calc.custoTotalComTaxas)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço sugerido</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(calc.precoSugerido)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Preço praticado</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(praticado)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Lucro líquido</div><div style="font-size:15px;font-weight:600" class="'+(lucro>=0?'positivo':'negativo')+'">'+fmtMoeda(lucro)+'</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Margem real</div><div style="font-size:15px;font-weight:600">'+margemReal.toFixed(1)+'%</div></div>'
+        +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Markup sobre custo total</div><div style="font-size:15px;font-weight:600">'+markup.toFixed(1)+'%</div></div>'
+        +'</div><div style="font-size:11px;color:var(--texto-sec);margin-top:6px">A precificação é interna e não altera os preços da loja.</div>';})()
       +urlHtml
       +(descricaoVisivel?'<div style="white-space:pre-wrap;font-size:12px;line-height:1.7;color:var(--texto-sec);margin-bottom:14px">'+descricaoVisivel+'</div>':'')
       +'<div class="table-scroll"><table><thead><tr><th>Variação</th><th>SKU da variação</th><th>Preço</th><th>Estoque</th></tr></thead><tbody>'+variantsHtml+'</tbody></table></div>'

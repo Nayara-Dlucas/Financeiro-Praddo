@@ -212,6 +212,220 @@
     <div style="margin-bottom:16px"><button class="btn-outline" id="btn-exportar-backup">⬇ Exportar backup (.json)</button></div>
 
 
+l>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Praddo Painel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --graf: #1C1A17;
+    --graf2: #2A2724;
+    --oliva: #5C6B4A;
+    --oliva-escuro: #4A5639;
+    --oliva-claro: #8FA07A;
+    --bege: #EFEDE7;
+    --fundo: #F6F5F1;
+    --card: #FFFFFF;
+    --texto: #2C2A26;
+    --texto-sec: #7A776F;
+    --borda: #E3E0D8;
+    --verde-ok: #3F4A32;
+    --verde-ok-bg: #E3E7DC;
+    --vermelho: #8A3232;
+    --vermelho-bg: #F0E0E0;
+    --amarelo: #8A4F2A;
+    --amarelo-bg: #F3E3D8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--fundo);color:var(--texto);display:flex;min-height:100vh}
+  .sidebar{width:220px;background:var(--graf);flex-shrink:0;padding:22px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .brand{color:var(--bege);font-size:17px;font-weight:600;letter-spacing:0.3px;margin-bottom:4px;padding:0 10px}
+  .brand span{color:var(--oliva-claro);font-weight:400}
+  .brand-sub{color:#A9A69E;font-size:12px;padding:0 10px;margin-bottom:22px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#C9C6C0;font-size:14px;cursor:pointer;margin-bottom:2px;transition:background .15s}
+  .nav-item:hover{background:rgba(255,255,255,0.06)}
+  .nav-item.active{background:rgba(143,160,122,0.18);color:var(--bege)}
+  .nav-item.disabled{opacity:0.45;cursor:default}
+  .nav-item.disabled:hover{background:none}
+  .nav-icon{width:18px;text-align:center;font-size:15px}
+  .badge-soon{font-size:9px;background:rgba(255,255,255,0.08);color:#A9A69E;padding:2px 6px;border-radius:5px;margin-left:auto}
+  .main{flex:1;padding:28px 32px;max-width:1080px}
+  .page{display:none}
+  .page.active{display:block}
+  .page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+  .page-title{font-size:22px;font-weight:600;color:var(--graf)}
+  .page-sub{font-size:13px;color:var(--texto-sec);margin-top:2px}
+  .btn{background:var(--oliva);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
+  .btn:hover{opacity:0.9}
+  .btn-outline{background:transparent;color:var(--graf);border:1px solid var(--borda);border-radius:8px;padding:9px 15px;font-size:13px;cursor:pointer}
+  .btn-outline:hover{background:var(--bege)}
+  .btn-icon{background:none;border:none;cursor:pointer;color:var(--texto-sec);font-size:15px;padding:4px 8px;border-radius:6px}
+  .btn-icon:hover{background:var(--bege)}
+  .eye-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--texto-sec);cursor:pointer;user-select:none}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+  .kpi-card{background:var(--card);border-radius:12px;padding:16px 18px;border:1px solid var(--borda)}
+  .kpi-card.accent{border-left:3px solid var(--oliva)}
+  .kpi-label{font-size:12px;color:var(--texto-sec);margin-bottom:6px}
+  .kpi-value{font-size:22px;font-weight:600;color:var(--graf)}
+  .kpi-value.positivo{color:var(--verde-ok)}
+  .kpi-value.negativo{color:var(--vermelho)}
+  .card{background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--borda);margin-bottom:20px}
+  .card-title{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--graf)}
+  .chart-wrap{position:relative;height:260px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;padding:9px 10px;color:var(--texto-sec);font-weight:500;font-size:12px;border-bottom:1px solid var(--borda);white-space:nowrap}
+  td{padding:10px;border-bottom:1px solid var(--borda);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .tag{font-size:11px;padding:3px 9px;border-radius:6px;background:var(--bege);color:var(--texto-sec);white-space:nowrap}
+  .val-entrada{color:var(--verde-ok);font-weight:500}
+  .val-saida{color:var(--vermelho);font-weight:500}
+  .form-grid{display:grid;grid-template-columns:120px 1fr 1fr 140px 110px 110px auto;gap:10px;align-items:end;margin-bottom:18px}
+  .field label{display:block;font-size:11px;color:var(--texto-sec);margin-bottom:4px}
+  .field input,.field select{width:100%;padding:8px 10px;border:1px solid var(--borda);border-radius:7px;font-size:13px;background:var(--fundo);color:var(--texto)}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--oliva)}
+  .empty{text-align:center;padding:40px 20px;color:var(--texto-sec);font-size:13px}
+  .empty i{font-size:28px;display:block;margin-bottom:10px;opacity:0.5}
+  .dashboard-executivo{margin:4px 0 22px}.dashboard-periodo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.dashboard-periodo>div{display:flex;flex-direction:column;gap:4px}.dashboard-periodo strong{font-size:15px;color:var(--graf)}.dashboard-eyebrow{font-size:10px;letter-spacing:1.1px;font-weight:700;color:var(--oliva)}.dashboard-status{font-size:11px;padding:5px 9px;border-radius:20px;background:var(--bege);color:var(--oliva);white-space:nowrap}.dashboard-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}.dashboard-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:7px;min-width:0}.dashboard-card.destaque{border-left:3px solid var(--oliva)}.dashboard-card span{font-size:12px;color:var(--texto-sec)}.dashboard-card strong{font-size:clamp(19px,2vw,25px);font-weight:650;color:var(--graf);white-space:nowrap}.dashboard-card strong.saida{color:var(--vermelho)}.dashboard-card small{font-size:11px;color:var(--texto-sec)}.dashboard-grid-secundario .dashboard-card{padding:13px 15px}.dashboard-grid-secundario .dashboard-card strong{font-size:19px}.dashboard-alerta{padding:12px 14px;border:1px solid #e8d8b4;background:#fbf7ed;border-radius:9px;font-size:12px;color:#725b2d}.dashboard-nota{font-size:11px;color:var(--texto-sec);margin:9px 2px 0}.section-subtitle{font-size:13px;font-weight:600;color:var(--texto-sec);margin:8px 0 12px}@media(max-width:900px){.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.dashboard-grid{grid-template-columns:1fr 1fr;gap:8px}.dashboard-card{padding:12px}.dashboard-card strong{font-size:17px}.dashboard-grid-secundario .dashboard-card strong{font-size:16px}}
+  .dashboard-executivo .field{min-width:150px}.dashboard-executivo .field input{min-width:150px}.dashboard-executivo .dashboard-grid{margin-bottom:12px}#painel-financeiro-resumo{margin-top:22px}#painel-financeiro-resumo .dashboard-grid{margin-bottom:0}@media(max-width:520px){.dashboard-executivo .field,.dashboard-executivo .field input{min-width:0;width:100%}}
+  .hidden-val{filter:blur(6px);user-select:none}
+  body.valores-ocultos .kpi-value,body.valores-ocultos .val-entrada,body.valores-ocultos .val-saida,body.valores-ocultos .saldo-col,body.valores-ocultos .money-display{filter:blur(6px);user-select:none}
+  .table-scroll{overflow-x:auto}
+  .del-btn{color:var(--vermelho);background:none;border:none;cursor:pointer;font-size:15px;padding:4px 7px;border-radius:6px}
+  .del-btn:hover{background:var(--vermelho-bg)}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,26,23,0.5);z-index:1000;align-items:center;justify-content:center;padding:20px}
+  .modal-box{background:#fff;border-radius:12px;padding:22px;max-width:340px;width:100%}
+  .modal-box p{font-size:14px;color:var(--texto);margin-bottom:18px}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end}
+  .estrela-vip{cursor:pointer;font-size:16px;color:#C9C6C0;transition:color .15s}
+  .estrela-vip.ativa{color:#D9A62E}
+  .pos-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;max-height:50vh;overflow-y:auto;margin-bottom:14px}
+  .pos-cell{background:var(--bege);border-radius:4px;font-size:10px;text-align:center;padding:6px 2px;cursor:pointer;color:var(--texto-sec)}
+  .pos-cell:hover{background:var(--oliva);color:#fff}
+  .saldo-col{font-weight:600}
+  .err{color:var(--vermelho);font-size:12px;margin-top:4px;display:none}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--graf);color:var(--bege);padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s}
+  .toast.show{opacity:1}
+  .peca-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+  .sim-form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media (max-width: 900px){
+    body{flex-direction:column}
+    .sidebar{width:100%;height:auto;position:relative;display:flex;overflow-x:auto;padding:14px}
+    .brand,.brand-sub{display:none}
+    .nav-item{white-space:nowrap;flex-shrink:0}
+    .main{padding:18px}
+    .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .form-grid{grid-template-columns:1fr 1fr}
+    .peca-kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .sim-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+
+  /* ===== AUTENTICAÇÃO DO PAINEL ===== */
+  .auth-gate{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--fundo)}
+  .auth-card{width:min(100%,410px);background:var(--card);border:1px solid var(--borda);border-radius:18px;padding:32px;box-shadow:0 18px 60px rgba(28,26,23,.10)}
+  .auth-logo{color:var(--graf);font-size:25px;font-weight:700;letter-spacing:.2px;margin-bottom:5px}
+  .auth-logo span{color:var(--oliva);font-weight:400}
+  .auth-subtitle{font-size:13px;line-height:1.5;color:var(--texto-sec);margin-bottom:25px}
+  .auth-field{margin-bottom:16px}
+  .auth-field label{display:block;font-size:12px;color:var(--texto-sec);margin-bottom:6px}
+  .auth-field input{width:100%;padding:12px 13px;border:1px solid var(--borda);border-radius:8px;font-size:14px;background:#fff;color:var(--texto)}
+  .auth-field input:focus{outline:none;border-color:var(--oliva);box-shadow:0 0 0 3px rgba(92,107,74,.12)}
+  .auth-btn{width:100%;padding:12px 16px;margin-top:4px}
+  .auth-btn:disabled{opacity:.65;cursor:wait}
+  .auth-message{min-height:18px;margin-top:13px;font-size:12px;line-height:1.5;color:var(--vermelho)}
+  .auth-foot{border-top:1px solid var(--borda);margin-top:20px;padding-top:14px;font-size:11px;line-height:1.5;color:var(--texto-sec)}
+  .sidebar-account{margin-top:24px;padding:14px 10px 0;border-top:1px solid rgba(255,255,255,.12);color:#C9C6C0}
+  .sidebar-account .account-email{font-size:11px;overflow-wrap:anywhere;margin-bottom:9px;color:#A9A69E}
+  .sidebar-account .btn-outline{color:var(--bege);border-color:rgba(255,255,255,.22);width:100%}
+  @media (max-width:900px){.sidebar-account{display:flex;align-items:center;gap:12px;margin-top:0;padding:0 8px;border-top:none;min-width:230px}.sidebar-account .account-email{margin-bottom:0;max-width:150px}.sidebar-account .btn-outline{width:auto}}
+
+</style>
+</head>
+<body>
+
+<div id="auth-gate" class="auth-gate" role="main" aria-labelledby="auth-title">
+  <div class="auth-card">
+    <div class="auth-logo" id="auth-title">Praddo <span>Painel</span></div>
+    <div class="auth-subtitle">Controle financeiro e operacional da loja. Entre com o e-mail e a senha da conta autorizada.</div>
+    <form id="auth-form" onsubmit="entrarPainel(event)" autocomplete="on">
+      <div class="auth-field">
+        <label for="auth-email">E-mail</label>
+        <input id="auth-email" name="email" type="email" autocomplete="username" required maxlength="254" placeholder="seu@email.com">
+      </div>
+      <div class="auth-field">
+        <label for="auth-password">Senha</label>
+        <input id="auth-password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button id="btn-entrar" class="btn auth-btn" type="submit">Entrar no painel</button>
+      <div id="auth-message" class="auth-message" role="status" aria-live="polite"></div>
+    </form>
+    <div class="auth-foot">Acesso privado. O cadastro público de novas contas não é disponibilizado nesta tela; somente a conta autorizada pode consultar e alterar os dados do painel.</div>
+  </div>
+</div>
+
+<div id="app-shell" style="display:none;flex:1;min-height:100vh">
+<div class="sidebar">
+  <div class="brand">Praddo <span>Painel</span></div>
+  <div class="brand-sub">Controle da loja</div>
+
+  <div class="nav-item active" data-page="resumo"><span class="nav-icon">◆</span>Resumo</div>
+  <div class="nav-item" data-page="vendas"><span class="nav-icon">＋</span>Lançamento de vendas</div>
+  <div class="nav-item" data-page="estoque"><span class="nav-icon">▦</span>Estoque</div>
+  <div class="nav-item" data-page="fluxo"><span class="nav-icon">⇄</span>Saídas Praddo</div>
+  <div class="nav-item" data-page="fechamento"><span class="nav-icon">◈</span>Fechamento de caixa</div>
+  <div class="nav-item" data-page="custos"><span class="nav-icon">▢</span>Custos da loja</div>
+  <div class="nav-item" data-page="pecas"><span class="nav-icon">◇</span>Produtos cadastrados</div>
+  <div class="nav-item" data-page="fornecedores"><span class="nav-icon">▤</span>Fornecedores</div>
+  <div class="nav-item" data-page="clientes"><span class="nav-icon">☺</span>Clientes</div>
+  <div class="nav-item" data-page="contas"><span class="nav-icon">▥</span>Contas a pagar</div>
+  <div class="nav-item" data-page="impostos"><span class="nav-icon">▧</span>Impostos MEI</div>
+  <div class="nav-item" data-page="embaixadoras"><span class="nav-icon">★</span>Embaixadoras</div>
+  <div class="nav-item" data-page="seguranca"><span class="nav-icon">▣</span>Backups e auditoria</div>
+  <div class="sidebar-account">
+    <div id="auth-user-email" class="account-email"></div>
+    <button type="button" class="btn-outline" id="btn-sair">Sair do painel</button>
+  </div>
+</div>
+
+<button type="button" class="eye-toggle" id="eye-toggle" style="position:fixed;top:14px;right:22px;z-index:900;background:var(--card);border:1px solid var(--borda);border-radius:20px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.06)"><span id="eye-icon">👁</span><span id="eye-label">Ocultar valores</span></button>
+<div class="main">
+
+  <!-- PÁGINA RESUMO -->
+  <div class="page active" id="page-resumo">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Resumo</div>
+        <div class="page-sub" id="resumo-data"></div>
+      </div>
+      
+    </div>
+    <section class="dashboard-executivo">
+      <div class="dashboard-periodo"><div><span class="dashboard-eyebrow">VISÃO GERAL DA LOJA</span><strong id="painel-periodo-titulo">Mês atual</strong></div><span class="dashboard-status">Indicadores operacionais</span></div>
+      <div class="card" style="padding:13px 16px;margin-bottom:12px"><div style="display:flex;align-items:end;gap:10px;flex-wrap:wrap">
+        <div class="field"><label>Data inicial</label><input type="date" id="painel-data-inicio"></div><div class="field"><label>Data final</label><input type="date" id="painel-data-fim"></div>
+        <button type="button" class="btn" id="painel-aplicar-filtro">Aplicar período</button><button type="button" class="btn-outline" id="painel-periodo-atual">Mês atual</button>
+      </div><div class="dashboard-nota">O filtro altera vendas, saídas e resultado. Os indicadores de produtos mostram a situação atual do catálogo.</div></div>
+      <div class="dashboard-grid">
+        <article class="dashboard-card destaque"><span>Produtos ativos</span><strong id="painel-produtos-ativos">0</strong><small>Disponíveis no catálogo do painel</small></article>
+        <article class="dashboard-card"><span>Produtos descontinuados</span><strong id="painel-produtos-descontinuados">0</strong><small>Arquivados no catálogo</small></article>
+        <article class="dashboard-card"><span>Produtos sem estoque</span><strong id="painel-produtos-sem-estoque">0</strong><small>Saldo conhecido igual a zero</small></article>
+        <article class="dashboard-card"><span>Vendas no período</span><strong id="painel-vendas-periodo" class="money-display">R$ 0,00</strong><small id="painel-vendas-qtd">0 vendas registradas</small></article>
+      </div>
+      <div class="dashboard-grid">
+        <article class="dashboard-card"><span>Saídas no período</span><strong id="painel-saidas-periodo" class="money-display saida">R$ 0,00</strong><small>Despesas lançadas no painel</small></article>
+        <article class="dashboard-card"><span>Resultado do período</span><strong id="painel-resultado-periodo" class="money-display">R$ 0,00</strong><small>Vendas menos saídas</small></article>
+        <article class="dashboard-card"><span>Vencimento da guia DAS</span><strong id="painel-das-data">—</strong><small id="painel-das-status">Data configurada nos impostos MEI</small></article>
+        <article class="dashboard-card"><span>Clientes cadastrados</span><strong id="painel-clientes-total">0</strong><small>Base de relacionamento</small></article>
+      </div>
+    </section>
+    <div style="margin-bottom:16px"><button class="btn-outline" id="btn-exportar-backup">⬇ Exportar backup (.json)</button></div>
+
+
     <section class="card" id="painel-financeiro-resumo"><div class="card-title">Resumo financeiro e saldos atuais</div><div class="dashboard-grid">
       <article class="dashboard-card"><span>Saldo das contas bancárias</span><strong id="painel-saldo-contas" class="money-display">R$ 0,00</strong><small>Soma dos saldos informados manualmente</small></article>
       <article class="dashboard-card"><span>Porquinho — Caixa da loja</span><strong id="painel-saldo-porquinho" class="money-display">R$ 0,00</strong><small>Conta identificada como Porquinho</small></article>
@@ -226,6 +440,8 @@
       <div class="kpi-card"><div class="kpi-label">Contas a pagar (7 dias)</div><div class="kpi-value" id="kpi-contas-proximas">R$ 0,00</div></div>
       <div class="kpi-card"><div class="kpi-label">Contas a receber (pendente)</div><div class="kpi-value" id="kpi-contas-receber-pendente">R$ 0,00</div></div>
     </div>
+
+
 
     <div class="card" id="kpi-mei-alerta" style="display:none;border-left:3px solid var(--amarelo);background:transparent"></div>
 

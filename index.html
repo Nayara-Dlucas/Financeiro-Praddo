@@ -147,7 +147,7 @@
         <label for="auth-password">Senha</label>
         <input id="auth-password" name="password" type="password" autocomplete="current-password" required>
       </div>
-      <button id="btn-entrar" class="btn auth-btn" type="button">Entrar no painel</button>
+      <button id="btn-entrar" class="btn auth-btn" type="button" onclick="(function(){var m=document.getElementById('auth-message');if(m)m.textContent='Clique recebido pelo navegador. Iniciando login...';if(typeof window.entrarPainel==='function'){window.entrarPainel({preventDefault:function(){}});}else if(m){m.textContent='O código de login não foi carregado. Atualize a página com Ctrl + F5.';}})()">Entrar no painel</button>
       <div id="auth-message" class="auth-message" role="status" aria-live="polite"></div>
     </form>
     <script>

@@ -1344,7 +1344,7 @@ async function abrirPainelAutorizado(session) {
     } catch (loadError) {
       painelDadosInicializados = false;
       console.error('Painel bloqueado para evitar exibição/salvamento de dados incompletos:', loadError);
-      mostrarLogin('Não foi possível carregar todos os dados. Nenhuma lista vazia foi salva. Verifique sua conexão e tente novamente.');
+      mostrarLogin('Falha ao carregar o painel: '+String(loadError && loadError.message || loadError || 'erro desconhecido').slice(0,220)+'. Seus dados não foram apagados.');
       return false;
     }
   }
@@ -1377,7 +1377,8 @@ async function entrarPainel(event) {
     }
     await abrirPainelAutorizado(data.session);
   } catch (error) {
-    msg.textContent = 'Não foi possível validar o acesso agora. Tente novamente.';
+    console.error('Erro durante autenticação do painel:', error);
+    msg.textContent = 'Falha na autenticação: '+String(error && error.message || error || 'erro desconhecido').slice(0,220);
   } finally {
     button.disabled = false;
     button.textContent = 'Entrar no painel';

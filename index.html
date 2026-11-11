@@ -477,6 +477,28 @@
       </div>
       <div class="err" id="estoque-ajuste-erro"></div>
     </div>
+    <div class="card" id="analise-estoque-card">
+      <div class="card-title">Análise financeira do estoque</div>
+      <div class="page-sub" style="margin-bottom:14px">Estimativa baseada nas quantidades controladas, nos custos cadastrados e nos preços atuais do catálogo. Itens sem custo ou sem preço ficam destacados e não entram nos totais correspondentes.</div>
+      <div class="peca-kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Capital investido em estoque</div><div class="kpi-value" id="ae-capital">—</div><div class="page-sub" id="ae-capital-nota"></div></div>
+        <div class="kpi-card"><div class="kpi-label">Valor potencial de vendas</div><div class="kpi-value" id="ae-vendas">—</div><div class="page-sub" id="ae-vendas-nota"></div></div>
+        <div class="kpi-card"><div class="kpi-label">Lucro bruto potencial</div><div class="kpi-value positivo" id="ae-lucro-bruto">—</div><div class="page-sub">Venda estimada menos custo do estoque</div></div>
+        <div class="kpi-card"><div class="kpi-label">Lucro estimado após taxas</div><div class="kpi-value positivo" id="ae-lucro-liquido">—</div><div class="page-sub">Estimativa conforme taxas cadastradas</div></div>
+      </div>
+      <div class="peca-kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Margem bruta potencial</div><div class="kpi-value" id="ae-margem">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Unidades consideradas</div><div class="kpi-value" id="ae-unidades">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Produtos sem custo</div><div class="kpi-value" id="ae-sem-custo">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Itens sem preço</div><div class="kpi-value" id="ae-sem-preco">—</div></div>
+      </div>
+      <div class="section-subtitle">Resultado por categoria</div>
+      <div class="table-scroll"><table><thead><tr><th>Categoria</th><th>Unidades</th><th>Capital</th><th>Venda potencial</th><th>Lucro bruto</th></tr></thead><tbody id="ae-categorias"></tbody></table></div>
+      <div class="section-subtitle" style="margin-top:18px">Produtos com maior lucro potencial por unidade</div>
+      <div class="table-scroll"><table><thead><tr><th>Produto</th><th>Categoria</th><th>Custo unitário</th><th>Preço</th><th>Lucro unitário estimado</th></tr></thead><tbody id="ae-rentaveis"></tbody></table></div>
+      <div class="page-sub" id="ae-observacao" style="margin-top:12px;line-height:1.6"></div>
+    </div>
+
     <div class="card">
       <div class="card-title">Saldos por produto e variante</div>
       <div class="form-grid" style="grid-template-columns:minmax(220px,2fr) minmax(180px,1fr);margin-bottom:12px">
@@ -1861,6 +1883,50 @@ function formatarPropriedadesEstoque(obj){
   const parts=Object.entries(obj).map(([k,v])=>k+': '+v);
   return parts.length?parts.join(' · '):'—';
 }
+function renderAnaliseEstoque(){
+  if(!document.getElementById('ae-capital'))return;
+  const dinheiro=v=>fmtMoeda(Number.isFinite(v)?v:0);
+  const produtos=Array.isArray(pecas)?pecas:[];
+  const controladas=(estoqueVariantes||[]).filter(x=>x.status_estoque==='controlado'&&Number(x.saldo_atual)>0);
+  const linhas=[],semCusto=new Set(),semPreco=new Set();
+  for(const x of controladas){
+    const sku=String(x.sku||'').trim().toLowerCase();
+    const produto=produtos.find(p=>String(p.sku||'').trim().toLowerCase()===sku)||produtos.find(p=>(p.variantesNuvemshop||[]).some(v=>String(v.sku||'').trim().toLowerCase()===sku));
+    if(!produto)continue;
+    const variante=(produto.variantesNuvemshop||[]).find(v=>String(v.sku||'').trim().toLowerCase()===sku);
+    const qtd=Number(x.saldo_atual)||0,custo=calcularCustoSnapshotProduto(produto);
+    const preco=Number(variante?.precoFinal||variante?.preco||produto.precoPraticado||produto.precoSugerido)||0;
+    if(custo===null)semCusto.add(produto.id||produto.sku);
+    if(preco<=0)semPreco.add(produto.id||produto.sku);
+    linhas.push({produto,qtd,custo,preco,categoria:produto.categoria||'Sem categoria'});
+  }
+  const comCusto=linhas.filter(x=>x.custo!==null),comPreco=linhas.filter(x=>x.preco>0);
+  const capital=comCusto.reduce((a,x)=>a+x.custo*x.qtd,0),vendas=comPreco.reduce((a,x)=>a+x.preco*x.qtd,0);
+  const lucroBruto=linhas.filter(x=>x.custo!==null&&x.preco>0).reduce((a,x)=>a+(x.preco-x.custo)*x.qtd,0);
+  const lucroAposTaxas=linhas.filter(x=>x.custo!==null&&x.preco>0).reduce((a,x)=>{
+    const emb=(x.produto.embalagens||[]).reduce((t,e)=>t+(Number(e.unit)||0)*(Number(e.qtd)||0),0);
+    const calc=calcularPrecificacao({custoProduto:x.produto.custoProduto,custosAdd:x.produto.custosAdd,frete:x.produto.frete,extras:x.produto.extras,margem:Number(x.produto.margem)||110,taxasPercentual:x.produto.taxasPercentual,embalagensTotal:emb});
+    return a+(x.preco-x.custo-Math.max(0,calc.custoTotalComTaxas-calc.custoTotal))*x.qtd;
+  },0);
+  const unidades=linhas.reduce((a,x)=>a+x.qtd,0);
+  document.getElementById('ae-capital').textContent=dinheiro(capital);
+  document.getElementById('ae-vendas').textContent=dinheiro(vendas);
+  document.getElementById('ae-lucro-bruto').textContent=dinheiro(lucroBruto);
+  document.getElementById('ae-lucro-liquido').textContent=dinheiro(lucroAposTaxas);
+  document.getElementById('ae-margem').textContent=(vendas>0?lucroBruto/vendas*100:0).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
+  document.getElementById('ae-unidades').textContent=unidades.toLocaleString('pt-BR');
+  document.getElementById('ae-sem-custo').textContent=semCusto.size.toLocaleString('pt-BR');
+  document.getElementById('ae-sem-preco').textContent=semPreco.size.toLocaleString('pt-BR');
+  document.getElementById('ae-capital-nota').textContent=comCusto.reduce((a,x)=>a+x.qtd,0)+' unidades com custo informado';
+  document.getElementById('ae-vendas-nota').textContent=comPreco.reduce((a,x)=>a+x.qtd,0)+' unidades com preço informado';
+  const categorias={};
+  linhas.forEach(x=>{const c=categorias[x.categoria]||(categorias[x.categoria]={qtd:0,custo:0,venda:0,temCusto:true});c.qtd+=x.qtd;if(x.custo===null)c.temCusto=false;else c.custo+=x.custo*x.qtd;if(x.preco>0)c.venda+=x.preco*x.qtd;});
+  document.getElementById('ae-categorias').innerHTML=Object.entries(categorias).sort((a,b)=>b[1].venda-a[1].venda).map(([nome,c])=>'<tr><td>'+escaparHtmlSeguranca(nome)+'</td><td>'+c.qtd+'</td><td>'+(c.temCusto?dinheiro(c.custo):'Custo incompleto')+'</td><td>'+dinheiro(c.venda)+'</td><td>'+(c.temCusto?dinheiro(c.venda-c.custo):'—')+'</td></tr>').join('')||'<tr><td colspan="5">Nenhum saldo controlado vinculado ao catálogo.</td></tr>';
+  const rentaveis=linhas.filter(x=>x.custo!==null&&x.preco>0).map(x=>({...x,lucro:x.preco-x.custo})).sort((a,b)=>b.lucro-a.lucro).slice(0,5);
+  document.getElementById('ae-rentaveis').innerHTML=rentaveis.map(x=>'<tr><td>'+escaparHtmlSeguranca(x.produto.nome||'Produto')+'</td><td>'+escaparHtmlSeguranca(x.categoria)+'</td><td>'+dinheiro(x.custo)+'</td><td>'+dinheiro(x.preco)+'</td><td>'+dinheiro(x.lucro)+'</td></tr>').join('')||'<tr><td colspan="5">Preencha custos e preços para visualizar o ranking.</td></tr>';
+  document.getElementById('ae-observacao').textContent='Considera apenas variantes com saldo interno controlado e SKU vinculado ao catálogo. Saldos ilimitados, pendentes ou sem vínculo ficam fora dos cálculos. '+(semCusto.size?'Há produtos sem custo que precisam ser preenchidos. ':'')+'O lucro após taxas é estimado pelas taxas configuradas na precificação; não inclui despesas fixas rateadas.';
+}
+
 function renderEstoque(){
   const controladas=estoqueVariantes.filter(x=>x.status_estoque==='controlado');
   const pendentes=estoqueVariantes.filter(x=>x.status_estoque==='aguardando_contagem');
@@ -1894,6 +1960,7 @@ function renderEstoque(){
     return '<option value="'+x.id+'">'+escaparHtmlSeguranca(x.nome_produto)+' · '+escaparHtmlSeguranca(x.sku||'sem SKU')+' · '+escaparHtmlSeguranca(varTxt)+' · '+s+'</option>';
   }).join('');
   if(atual)select.value=atual;
+  renderAnaliseEstoque();
 }
 async function atualizarEstoqueTela(){
   const btn=document.getElementById('btn-atualizar-estoque');

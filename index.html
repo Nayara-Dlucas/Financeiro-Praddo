@@ -3142,7 +3142,7 @@ function renderProdutoNuvemshop(p){
         +'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
       +'</div>'
     +'</div>'
-    +'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"><span class="tag">'+escaparHtml(p.categoria||'Sem categoria')+'</span><span class="tag">Nuvemshop</span><span class="tag">'+escaparHtml(visibilidade)+'</span><span class="tag">'+escaparHtml(stockLabel)+'</span>'+(p.statusCatalogo === 'descontinuado' ? '<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho)">Descontinuado no painel</span>' : '')+(p.alteracoesLocaisPendentes?'<span class="tag" style="background:var(--amarelo-bg);color:var(--amarelo)">Alterações locais não sincronizadas</span>':'')+'</div>'
+    +'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"><span class="tag">'+escaparHtml(p.categoria||'Sem categoria')+'</span><span class="tag">Nuvemshop</span>'+(!(Number(p.custoProduto)>0)?'<span class="tag" style="background:var(--amarelo-bg);color:var(--amarelo);font-weight:600">⚠ Custo do produto não informado</span>':'')+'<span class="tag">'+escaparHtml(visibilidade)+'</span><span class="tag">'+escaparHtml(stockLabel)+'</span>'+(p.statusCatalogo === 'descontinuado' ? '<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho)">Descontinuado no painel</span>' : '')+(p.alteracoesLocaisPendentes?'<span class="tag" style="background:var(--amarelo-bg);color:var(--amarelo)">Alterações locais não sincronizadas</span>':'')+'</div>'
     +'<div id="detalhe-peca-'+p.id+'" style="display:none;margin-top:14px">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
         +'<div style="font-size:12px;color:var(--texto-sec)">'+escaparHtml(p.categoria||'Colares')+'</div>'
@@ -3425,8 +3425,10 @@ function renderPecas(){
     const naoListados = importados.length-visiveis;
     const importacao = importados[0]?.nuvemshopImportadoEm;
     const dataLabel = importacao ? new Date(importacao).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '';
+    const semCusto=ativos.filter(p=>!(Number(p.custoProduto)>0)).length;
     summary.innerHTML = '<span class="tag" style="background:var(--verde-ok-bg);color:var(--verde-ok)">Ativos no painel: '+ativos.length+'</span>'
       +'<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho)">Descontinuados: '+descontinuados.length+'</span>'
+      +'<span class="tag" style="background:'+(semCusto?'var(--amarelo-bg)':'var(--verde-ok-bg)')+';color:'+(semCusto?'var(--amarelo)':'var(--verde-ok)')+'">⚠ Sem custo do produto: '+semCusto+'</span>'
       +'<span class="tag">Produtos importados da Nuvemshop: '+importados.length+'</span>'
       +'<span class="tag">'+visiveis+' visíveis na loja</span>'
       +(naoListados?'<span class="tag">'+naoListados+' não listados</span>':'')
@@ -3474,7 +3476,7 @@ function renderPecas(){
           +'<span id="chevron-'+p.id+'" style="color:var(--texto-sec);font-size:12px">▾</span>'
         +'</div>'
       +'</div>'
-      +'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"><span class="tag">'+escaparHtml(p.categoria||'Sem categoria')+'</span><span class="tag">Painel</span>'+(p.statusCatalogo==='descontinuado'?'<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho)">Descontinuado</span>':'')+'</div>'
+      +'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"><span class="tag">'+escaparHtml(p.categoria||'Sem categoria')+'</span><span class="tag">Painel</span>'+(!(Number(p.custoProduto)>0)?'<span class="tag" style="background:var(--amarelo-bg);color:var(--amarelo);font-weight:600">⚠ Custo do produto não informado</span>':'')+(p.statusCatalogo==='descontinuado'?'<span class="tag" style="background:var(--vermelho-bg);color:var(--vermelho)">Descontinuado</span>':'')+'</div>'
       +'<div id="detalhe-peca-'+p.id+'" style="display:none;margin-top:14px">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
         +'<div><div style="font-size:12px;color:var(--texto-sec)">'+p.categoria+(p.tamanho?' • '+p.tamanho:'')+'</div></div>'

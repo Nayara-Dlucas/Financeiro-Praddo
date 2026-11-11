@@ -147,9 +147,25 @@
         <label for="auth-password">Senha</label>
         <input id="auth-password" name="password" type="password" autocomplete="current-password" required>
       </div>
-      <button id="btn-entrar" class="btn auth-btn" type="submit">Entrar no painel</button>
+      <button id="btn-entrar" class="btn auth-btn" type="button">Entrar no painel</button>
       <div id="auth-message" class="auth-message" role="status" aria-live="polite"></div>
     </form>
+    <script>
+    (function(){
+      var b=document.getElementById('btn-entrar'),m=document.getElementById('auth-message'),f=document.getElementById('auth-form');
+      if(!b||!f)return;
+      b.addEventListener('click',function(){
+        if(m)m.textContent='Botão acionado. Verificando o sistema de acesso...';
+        if(typeof window.entrarPainel==='function'){
+          var ev=new Event('submit',{bubbles:true,cancelable:true});
+          f.dispatchEvent(ev);
+        }else if(m){
+          m.textContent='O sistema de acesso não terminou de carregar. Atualize a página (Ctrl + F5) e tente novamente.';
+        }
+      });
+      f.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();b.click();}});
+    })();
+    </script>
     <div class="auth-foot">Acesso privado. O cadastro público de novas contas não é disponibilizado nesta tela; somente a conta autorizada pode consultar e alterar os dados do painel.</div>
   </div>
 </div>
@@ -1395,14 +1411,7 @@ if (authFormEl) {
     entrarPainel(event);
   });
 }
-if (authButtonEl) {
-  authButtonEl.addEventListener('click', function(event) {
-    event.preventDefault();
-    const form = document.getElementById('auth-form');
-    if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
-    else entrarPainel(event);
-  });
-}
+
 
 async function sairPainel() {
   const { error } = await sbClient.auth.signOut();

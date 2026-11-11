@@ -78,6 +78,7 @@
   .empty{text-align:center;padding:40px 20px;color:var(--texto-sec);font-size:13px}
   .empty i{font-size:28px;display:block;margin-bottom:10px;opacity:0.5}
   .dashboard-executivo{margin:4px 0 22px}.dashboard-periodo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.dashboard-periodo>div{display:flex;flex-direction:column;gap:4px}.dashboard-periodo strong{font-size:15px;color:var(--graf)}.dashboard-eyebrow{font-size:10px;letter-spacing:1.1px;font-weight:700;color:var(--oliva)}.dashboard-status{font-size:11px;padding:5px 9px;border-radius:20px;background:var(--bege);color:var(--oliva);white-space:nowrap}.dashboard-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}.dashboard-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:7px;min-width:0}.dashboard-card.destaque{border-left:3px solid var(--oliva)}.dashboard-card span{font-size:12px;color:var(--texto-sec)}.dashboard-card strong{font-size:clamp(19px,2vw,25px);font-weight:650;color:var(--graf);white-space:nowrap}.dashboard-card strong.saida{color:var(--vermelho)}.dashboard-card small{font-size:11px;color:var(--texto-sec)}.dashboard-grid-secundario .dashboard-card{padding:13px 15px}.dashboard-grid-secundario .dashboard-card strong{font-size:19px}.dashboard-alerta{padding:12px 14px;border:1px solid #e8d8b4;background:#fbf7ed;border-radius:9px;font-size:12px;color:#725b2d}.dashboard-nota{font-size:11px;color:var(--texto-sec);margin:9px 2px 0}.section-subtitle{font-size:13px;font-weight:600;color:var(--texto-sec);margin:8px 0 12px}@media(max-width:900px){.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.dashboard-grid{grid-template-columns:1fr 1fr;gap:8px}.dashboard-card{padding:12px}.dashboard-card strong{font-size:17px}.dashboard-grid-secundario .dashboard-card strong{font-size:16px}}
+  .dashboard-executivo .field{min-width:150px}.dashboard-executivo .field input{min-width:150px}.dashboard-executivo .dashboard-grid{margin-bottom:12px}#painel-financeiro-resumo{margin-top:22px}#painel-financeiro-resumo .dashboard-grid{margin-bottom:0}@media(max-width:520px){.dashboard-executivo .field,.dashboard-executivo .field input{min-width:0;width:100%}}
   .hidden-val{filter:blur(6px);user-select:none}
   body.valores-ocultos .kpi-value,body.valores-ocultos .val-entrada,body.valores-ocultos .val-saida,body.valores-ocultos .saldo-col,body.valores-ocultos .money-display{filter:blur(6px);user-select:none}
   .table-scroll{overflow-x:auto}
@@ -190,25 +191,33 @@
       
     </div>
     <section class="dashboard-executivo">
-      <div class="dashboard-periodo"><div><span class="dashboard-eyebrow">FECHAMENTO CONCILIADO</span><strong>25 a 31 de outubro de 2026</strong></div><span class="dashboard-status">Base oficial</span></div>
+      <div class="dashboard-periodo"><div><span class="dashboard-eyebrow">VISÃO GERAL DA LOJA</span><strong id="painel-periodo-titulo">Mês atual</strong></div><span class="dashboard-status">Indicadores operacionais</span></div>
+      <div class="card" style="padding:13px 16px;margin-bottom:12px"><div style="display:flex;align-items:end;gap:10px;flex-wrap:wrap">
+        <div class="field"><label>Data inicial</label><input type="date" id="painel-data-inicio"></div><div class="field"><label>Data final</label><input type="date" id="painel-data-fim"></div>
+        <button type="button" class="btn" id="painel-aplicar-filtro">Aplicar período</button><button type="button" class="btn-outline" id="painel-periodo-atual">Mês atual</button>
+      </div><div class="dashboard-nota">O filtro altera vendas, saídas e resultado. Os indicadores de produtos mostram a situação atual do catálogo.</div></div>
       <div class="dashboard-grid">
-        <article class="dashboard-card destaque"><span>Saldo da Conta geral antes da transferência</span><strong class="money-display">R$ 243,09</strong><small>Saldo conferido no fechamento</small></article>
-        <article class="dashboard-card"><span>Vendas no período</span><strong class="money-display">R$ 0,00</strong><small>Vendas registradas no período</small></article>
-        <article class="dashboard-card"><span>Despesas no período</span><strong class="money-display saida">R$ 0,00</strong><small>Nenhuma saída informada no fechamento</small></article>
-        <article class="dashboard-card"><span>Resultado operacional</span><strong class="money-display">R$ 0,00</strong><small>Vendas menos despesas informadas</small></article>
+        <article class="dashboard-card destaque"><span>Produtos ativos</span><strong id="painel-produtos-ativos">0</strong><small>Disponíveis no catálogo do painel</small></article>
+        <article class="dashboard-card"><span>Produtos descontinuados</span><strong id="painel-produtos-descontinuados">0</strong><small>Arquivados no catálogo</small></article>
+        <article class="dashboard-card"><span>Produtos sem estoque</span><strong id="painel-produtos-sem-estoque">0</strong><small>Saldo conhecido igual a zero</small></article>
+        <article class="dashboard-card"><span>Vendas no período</span><strong id="painel-vendas-periodo" class="money-display">R$ 0,00</strong><small id="painel-vendas-qtd">0 vendas registradas</small></article>
       </div>
-      <div class="dashboard-grid dashboard-grid-secundario">
-        <article class="dashboard-card compacto"><span>Porquinho — Caixa da loja</span><strong class="money-display">R$ 2.111,93</strong><small>Saldo após transferência de R$ 243,09</small></article>
-        <article class="dashboard-card compacto"><span>Reserva de emergência</span><strong class="money-display">R$ 751,90</strong><small>Saldo mais recente registrado</small></article>
-        <article class="dashboard-card compacto"><span>Pró-labore retirado</span><strong class="money-display">R$ 0,00</strong><small>Pró-labore registrado no período</small></article>
-        <article class="dashboard-card compacto"><span>Reserva depositada no fechamento</span><strong class="money-display">R$ 0,00</strong><small>Depósito registrado no período</small></article>
+      <div class="dashboard-grid">
+        <article class="dashboard-card"><span>Saídas no período</span><strong id="painel-saidas-periodo" class="money-display saida">R$ 0,00</strong><small>Despesas lançadas no painel</small></article>
+        <article class="dashboard-card"><span>Resultado do período</span><strong id="painel-resultado-periodo" class="money-display">R$ 0,00</strong><small>Vendas menos saídas</small></article>
+        <article class="dashboard-card"><span>Vencimento da guia DAS</span><strong id="painel-das-data">—</strong><small id="painel-das-status">Data configurada nos impostos MEI</small></article>
+        <article class="dashboard-card"><span>Clientes cadastrados</span><strong id="painel-clientes-total">0</strong><small>Base de relacionamento</small></article>
       </div>
-      <div class="dashboard-alerta"><strong>Investimento registrado:</strong> R$ 156,01 — valor anteriormente apontado como divergência na conciliação e agora classificado como investimento, conforme orientação.</div>
-      <p class="dashboard-nota">Retrato do fechamento de 25 a 31/10/2026. A Conta geral tinha R$ 243,09 antes da transferência integral para o Porquinho. Os dados não representam saldo bancário em tempo real.</p>
     </section>
     <div style="margin-bottom:16px"><button class="btn-outline" id="btn-exportar-backup">⬇ Exportar backup (.json)</button></div>
 
 
+    <section class="card" id="painel-financeiro-resumo"><div class="card-title">Resumo financeiro e saldos atuais</div><div class="dashboard-grid">
+      <article class="dashboard-card"><span>Saldo das contas bancárias</span><strong id="painel-saldo-contas" class="money-display">R$ 0,00</strong><small>Soma dos saldos informados manualmente</small></article>
+      <article class="dashboard-card"><span>Porquinho — Caixa da loja</span><strong id="painel-saldo-porquinho" class="money-display">R$ 0,00</strong><small>Conta identificada como Porquinho</small></article>
+      <article class="dashboard-card"><span>Reserva de emergência</span><strong id="painel-saldo-reserva" class="money-display">R$ 0,00</strong><small>Saldo mais recente registrado</small></article>
+      <article class="dashboard-card"><span>Pró-labore retirado no período</span><strong id="painel-prolabore-periodo" class="money-display">R$ 0,00</strong><small>Saídas identificadas como pró-labore</small></article>
+    </div></section>
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-label">Clientes cadastrados</div><div class="kpi-value" id="kpi-clientes">0</div></div>
       <div class="kpi-card"><div class="kpi-label">Fornecedores cadastrados</div><div class="kpi-value" id="kpi-fornecedores-total">0</div></div>
@@ -1979,9 +1988,40 @@ function renderResumo(){
     }).join('') + '</tbody></table>';
   }
 
+  renderPainelIndicadores();
   renderChart();
   renderChartGastos();
 }
+
+function renderPainelIndicadores(){
+  const hoje=new Date(), inicioEl=document.getElementById('painel-data-inicio'), fimEl=document.getElementById('painel-data-fim');
+  if(!inicioEl||!fimEl)return;
+  if(!inicioEl.value||!fimEl.value){inicioEl.value=new Date(hoje.getFullYear(),hoje.getMonth(),1).toISOString().slice(0,10);fimEl.value=hoje.toISOString().slice(0,10);}
+  const inicio=inicioEl.value,fim=fimEl.value, valido=inicio<=fim;
+  const filtrados=valido?lancamentos.filter(l=>l.data&&l.data>=inicio&&l.data<=fim):[];
+  const vendas=filtrados.filter(l=>(Number(l.entrada)||0)>0), totalVendas=vendas.reduce((a,l)=>a+(Number(l.entrada)||0),0);
+  const totalSaidas=filtrados.reduce((a,l)=>a+(Number(l.saida)||0),0), resultado=totalVendas-totalSaidas;
+  const ativos=pecas.filter(p=>p.statusCatalogo!=='descontinuado'), descontinuados=pecas.filter(p=>p.statusCatalogo==='descontinuado');
+  const semEstoque=ativos.filter(p=>{const rows=estoqueVariantes.filter(x=>String(x.sku||'')===String(p.sku||''));if(rows.length)return rows.every(x=>x.status_estoque==='controlado'&&Number(x.saldo_atual)<=0);const n=Number(p.estoqueTotalNuvemshop);return p.estoqueTotalNuvemshop!==undefined&&p.estoqueTotalNuvemshop!==null&&p.estoqueTotalNuvemshop!==''&&Number.isFinite(n)&&n<=0;}).length;
+  const dataBR=iso=>{if(!iso)return '—';const [y,m,d]=iso.split('-');return d+'/'+m+'/'+y;};
+  document.getElementById('painel-periodo-titulo').textContent=valido?(inicio===fim?dataBR(inicio):dataBR(inicio)+' a '+dataBR(fim)):'Período inválido';
+  document.getElementById('painel-produtos-ativos').textContent=ativos.length.toLocaleString('pt-BR');
+  document.getElementById('painel-produtos-descontinuados').textContent=descontinuados.length.toLocaleString('pt-BR');
+  document.getElementById('painel-produtos-sem-estoque').textContent=semEstoque.toLocaleString('pt-BR');
+  const money=(id,v)=>{const el=document.getElementById(id);if(el)el.innerHTML=valoresOcultos?'<span class="hidden-val">'+fmtMoeda(v)+'</span>':fmtMoeda(v);};
+  money('painel-vendas-periodo',totalVendas);money('painel-saidas-periodo',totalSaidas);money('painel-resultado-periodo',resultado);
+  document.getElementById('painel-vendas-qtd').textContent=vendas.length+' venda(s) registrada(s)';
+  document.getElementById('painel-clientes-total').textContent=clientes.length.toLocaleString('pt-BR');
+  const venc=Number(meiConfig.venc)||20, dataVenc=new Date(hoje.getFullYear(),hoje.getMonth(),venc), pago=dasPagoNoMes(hoje.getMonth(),hoje.getFullYear());
+  document.getElementById('painel-das-data').textContent=dataVenc.toLocaleDateString('pt-BR');
+  document.getElementById('painel-das-status').textContent=pago?'DAS pago neste mês':(hoje>dataVenc?'Vencimento ultrapassado':'Vencimento da guia deste mês');
+  money('painel-saldo-contas',contasBancarias.reduce((a,c)=>a+(Number(c.saldo)||0),0));
+  money('painel-saldo-porquinho',contasBancarias.filter(c=>/porquinho/i.test(c.nome||'')).reduce((a,c)=>a+(Number(c.saldo)||0),0));
+  money('painel-saldo-reserva',Number(reservaEmergencia.valor)||0);
+  money('painel-prolabore-periodo',filtrados.filter(l=>/pr[oó][ -]?labore/i.test([l.categoria,l.descricao].join(' '))).reduce((a,l)=>a+(Number(l.saida)||0),0));
+}
+document.getElementById('painel-aplicar-filtro')?.addEventListener('click',()=>{const a=document.getElementById('painel-data-inicio').value,b=document.getElementById('painel-data-fim').value;if(!a||!b||a>b){showToast('Informe um intervalo válido.');return;}renderPainelIndicadores();});
+document.getElementById('painel-periodo-atual')?.addEventListener('click',()=>{const d=new Date();document.getElementById('painel-data-inicio').value=new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10);document.getElementById('painel-data-fim').value=d.toISOString().slice(0,10);renderPainelIndicadores();});
 
 function setKpi(id, valor){
   const el = document.getElementById(id);

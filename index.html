@@ -584,6 +584,7 @@
         <div class="field"><label>Qtd</label><input type="number" id="cv-qtd" placeholder="50"></div>
         <div class="field"><label>Fornecedor</label><input type="text" id="cv-fornecedor" placeholder="Opcional"></div>
         <div class="field"><label>Valor total (R$)</label><input type="text" step="0.01" id="cv-valor" class="money-mask" placeholder="0,00"></div>
+        <div class="field" style="grid-column:1/-1;display:flex;align-items:center;gap:8px"><input type="checkbox" id="cv-preselecionar" style="width:auto"><label for="cv-preselecionar" style="margin:0;font-size:12px;color:var(--texto)">Pré-selecionar automaticamente ao cadastrar uma peça</label></div>
         <button class="btn" id="btn-add-cv">Adicionar</button>
       </div>
       <datalist id="lista-categorias-custo">
@@ -2877,6 +2878,7 @@ document.getElementById('btn-add-cv').addEventListener('click', ()=>{
   const qtd = parseFloat(document.getElementById('cv-qtd').value) || 0;
   const fornecedor = document.getElementById('cv-fornecedor').value.trim();
   const valor = getMoedaValue(document.getElementById('cv-valor'));
+  const preselecionado = document.getElementById('cv-preselecionar').checked;
   const err = document.getElementById('cv-err');
 
   if(!categoria || !item || qtd<=0 || valor<=0){
@@ -2886,7 +2888,7 @@ document.getElementById('btn-add-cv').addEventListener('click', ()=>{
   }
   err.style.display = 'none';
 
-  custosVariaveis.push({ id: Date.now(), categoria, item, qtd, fornecedor, valor });
+  custosVariaveis.push({ id: Date.now(), categoria, item, qtd, fornecedor, valor, preselecionado });
   salvarCustosVariaveis();
   renderCustosVariaveis();
 
@@ -2895,6 +2897,8 @@ document.getElementById('btn-add-cv').addEventListener('click', ()=>{
   document.getElementById('cv-qtd').value='';
   document.getElementById('cv-fornecedor').value='';
   document.getElementById('cv-valor').value='';
+  document.getElementById('cv-preselecionar').checked=false;
+  renderEmbalagensCheckbox();
   showToast('Custo adicionado');
 });
 
@@ -2954,7 +2958,7 @@ function renderSimCustosVariaveis(){
     +'<div style="margin-bottom:6px"><a href="#" onclick="marcarTodosCustosSimulacao(true);return false;" style="font-size:12px;color:var(--oliva)">Marcar todos</a> · <a href="#" onclick="marcarTodosCustosSimulacao(false);return false;" style="font-size:12px;color:var(--oliva)">Desmarcar todos</a></div>'
     +itens.map(it=>{
       const previo = anteriores[it.item];
-      const marcado = previo ? previo.checked : true;
+      const marcado = previo ? previo.checked : it.preselecionado===true;
       const qtd = previo ? previo.qtd : 1;
       return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;flex-wrap:wrap">'
         +'<input type="checkbox" class="sim-custo-check" data-item="'+encodeURIComponent(it.item)+'" data-unit="'+it.unit+'" style="width:auto"'+(marcado?' checked':'')+'>'
@@ -2999,7 +3003,7 @@ function itensUnicosCusto(){
   custosVariaveis.forEach(c=>{
     const unit = c.qtd>0 ? c.valor/c.qtd : 0;
     if(!mapa[c.item] || mapa[c.item].data < c.id){
-      mapa[c.item] = {item:c.item, categoria:c.categoria, unit, data:c.id};
+      mapa[c.item] = {item:c.item, categoria:c.categoria, unit, preselecionado:c.preselecionado===true, data:c.id};
     }
   });
   return Object.values(mapa);
@@ -3021,7 +3025,7 @@ function renderEmbalagensCheckbox(){
   el.innerHTML = '<div style="margin-bottom:6px"><a href="#" onclick="marcarTodasEmbalagens(true);return false;" style="font-size:12px;color:var(--oliva)">Marcar todas</a> · <a href="#" onclick="marcarTodasEmbalagens(false);return false;" style="font-size:12px;color:var(--oliva)">Desmarcar todas</a></div>'
     + itens.map((it,i)=>{
     return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
-      +'<input type="checkbox" class="pc-embal-check" checked data-item="'+encodeURIComponent(it.item)+'" data-unit="'+it.unit+'" style="width:auto">'
+      +'<input type="checkbox" class="pc-embal-check"'+(it.preselecionado?' checked':'')+' data-item="'+encodeURIComponent(it.item)+'" data-unit="'+it.unit+'" style="width:auto">'
       +'<span style="flex:1">'+it.item+' <span style="color:var(--texto-sec)">('+fmtMoeda(it.unit)+'/un)</span></span>'
       +'<input type="number" min="1" value="1" class="pc-embal-qtd" style="width:60px;padding:4px 6px;border:1px solid var(--borda);border-radius:6px">'
       +'</div>';

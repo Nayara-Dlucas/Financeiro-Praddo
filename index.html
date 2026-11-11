@@ -3058,53 +3058,11 @@ window.toggleCardColapsavel = function(chave){
 }
 
 window.editarPeca = function(id){
-  const p = pecas.find(p=> p.id===id);
+  const p = pecas.find(item => String(item.id) === String(id));
   if(!p) return;
-  if(p.origem === 'nuvemshop'){
-    showToast('Este produto é sincronizado com a Nuvemshop. Atualize o cadastro na loja e depois importe novamente.');
-    return;
-  }
-  editandoPecaId = id;
-  document.getElementById('pc-nome').value = p.nome;
-  document.getElementById('pc-sku').value = p.sku || '';
-  document.getElementById('pc-taxas-manual').value = String(Number(p.taxasPercentual || 0));
-  document.getElementById('pc-categoria').value = p.categoria;
-  document.getElementById('pc-infantil').checked = !!p.infantil;
-  document.getElementById('pc-tamanho').value = p.tamanho||'';
-  setMoedaValue(document.getElementById('pc-custoproduto'), p.custoProduto||0);
-  setMoedaValue(document.getElementById('pc-custosadd'), p.custosAdd||0);
-  setMoedaValue(document.getElementById('pc-frete'), p.frete||0);
-  setMoedaValue(document.getElementById('pc-extras'), p.extras||0);
-  document.getElementById('pc-margem').value = p.precificacaoPendente ? (Number(p.margem)||110) : (p.margem||0);
-  const precoInput = document.getElementById('pc-praticado');
-  setMoedaValue(precoInput, p.precoPraticado||0);
-  if(p.precificacaoPendente){
-    precoInput.value = '';
-    precoInput.placeholder = 'Informe o preço de venda manual';
-  }else{
-    precoInput.placeholder = 'Deixe em branco pra usar o sugerido';
-  }
-
-  // marca embalagens que já estavam selecionadas nessa peça
-  document.querySelectorAll('.pc-embal-check').forEach(chk=>{
-    const itemNome = decodeURIComponent(chk.dataset.item);
-    const encontrado = (p.embalagens||[]).find(e=> e.item===itemNome);
-    chk.checked = !!encontrado;
-    const qtdInput = chk.closest('div').querySelector('.pc-embal-qtd');
-    qtdInput.disabled = !encontrado;
-    if(encontrado) qtdInput.value = encontrado.qtd;
-  });
-  // taxas: não dá pra saber quais exatas foram marcadas (só o total) — fica desmarcado, e o total original é preservado se nada for marcado de novo
-  document.querySelectorAll('.pc-taxa-check').forEach(c=> c.checked=false);
-
-  atualizarPreviewPeca();
-  document.getElementById('btn-add-peca').textContent = 'Salvar edição';
-  document.getElementById('card-titulo-pc').textContent = 'Editando: '+p.sku;
-  document.getElementById('conteudo-pc-form').style.display = 'block';
-  document.getElementById('chevron-pc-form').textContent = '▴';
-  document.getElementById('page-pecas').scrollIntoView({behavior:'smooth'});
-  showToast('Edite nome, SKU, custos, margem, taxas e preço no formulário acima.');
-}
+  // Produtos manuais e importados usam a mesma janela de edição.
+  window.editarProdutoNuvemshop(id);
+};
 
 
 function escaparHtml(valor){
@@ -3190,10 +3148,11 @@ function renderProdutoNuvemshop(p){
 let produtoNuvemshopEmEdicaoId = null;
 
 window.editarProdutoNuvemshop = function(id){
-  const p = pecas.find(item => String(item.id) === String(id) && item.origem === 'nuvemshop');
+  const p = pecas.find(item => String(item.id) === String(id));
   if(!p){ showToast('Não foi possível localizar esse produto.'); return; }
   produtoNuvemshopEmEdicaoId = p.id;
-  const categorias = ['Anéis','Brincos','Berloques','Colares','Pulseiras','Piercing','Conjuntos','Outros'];
+  const categorias = ['Anéis','Brincos','Berloques','Colares','Pulseiras','Piercing','Outros'];
+  if(p.categoria === 'Conjuntos') p.categoria = 'Colares';
   if(p.categoria && !categorias.includes(p.categoria)) categorias.push(p.categoria);
   const categoriaOptions = categorias.map(cat =>
     '<option value="'+escaparHtml(cat)+'"'+(String(p.categoria||'')===cat?' selected':'')+'>'+escaparHtml(cat)+'</option>'
@@ -3246,6 +3205,7 @@ window.editarProdutoNuvemshop = function(id){
     +'</div>'
     +'<div style="border-top:1px solid var(--borda);margin-top:18px;padding-top:14px"><h4 style="font-size:14px;margin-bottom:6px">Precificação interna</h4><p style="font-size:11px;color:var(--texto-sec);margin-bottom:10px">Valores para calcular custo e preço sugerido. Não modificam o preço da loja automaticamente.</p>'
       +'<div class="form-grid" style="grid-template-columns:1fr 1fr">'
+        +'<div class="field"><label>Preço praticado (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-preco-praticado" value="'+escaparHtml(Number(p.precoPraticado || (Array.isArray(p.variantesNuvemshop)&&p.variantesNuvemshop.length ? Math.min(...p.variantesNuvemshop.map(v=>Number(v.precoFinal ?? v.preco)||0)) : 0).toFixed(2))+'"></div>'
         +'<div class="field"><label>Custo do produto (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-custo" value="'+escaparHtml(Number(p.custoProduto||0).toFixed(2))+'"></div>'
         +'<div class="field"><label>Custos adicionais (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-custosadd" value="'+escaparHtml(Number(p.custosAdd||0).toFixed(2))+'"></div>'
         +'<div class="field"><label>Frete rateado (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-frete" value="'+escaparHtml(Number(p.frete||0).toFixed(2))+'"></div>'
@@ -3254,7 +3214,22 @@ window.editarProdutoNuvemshop = function(id){
         +'<div class="field"><label>Taxas e comissões (%)</label><input type="number" min="0" max="99.99" step="0.01" id="edit-nuv-taxas" value="'+escaparHtml(Number(p.taxasPercentual||0).toFixed(2))+'"></div>'
       +'</div>'
     +'</div>'
+    +'<div id="edit-nuv-indicadores" class="peca-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr));margin-top:14px"></div>'
     +camposVariantes;
+  const atualizarIndicadores = ()=>{
+    const n=id=>Math.max(0,Number(document.getElementById(id)?.value)||0);
+    const embalagens=(p.embalagens||[]).reduce((t,e)=>t+(Number(e.unit)||0)*(Number(e.qtd)||0),0);
+    const calc=calcularPrecificacao({custoProduto:n('edit-nuv-custo'),custosAdd:n('edit-nuv-custosadd'),frete:n('edit-nuv-frete'),extras:n('edit-nuv-extras'),margem:n('edit-nuv-margem'),taxasPercentual:n('edit-nuv-taxas'),embalagensTotal:embalagens});
+    const praticado=n('edit-nuv-preco-praticado');
+    const lucro=praticado-calc.custoTotalComTaxas;
+    const margemEfetiva=praticado>0?lucro/praticado*100:0;
+    const markup=calc.custoTotalComTaxas>0?lucro/calc.custoTotalComTaxas*100:0;
+    const itens=[['Custo da peça',fmtMoeda(calc.custoTotal)],['Custo total com taxas',fmtMoeda(calc.custoTotalComTaxas)],['Preço sugerido',fmtMoeda(calc.precoSugerido)],['Preço praticado',fmtMoeda(praticado)],['Lucro estimado',fmtMoeda(lucro)],['Margem colocada',n('edit-nuv-margem').toLocaleString('pt-BR')+'%'],['Margem efetiva',margemEfetiva.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%'],['Markup',markup.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%']];
+    const box=document.getElementById('edit-nuv-indicadores');
+    if(box)box.innerHTML=itens.map(([l,v])=>'<div style="border:1px solid var(--borda);border-radius:8px;padding:10px;background:var(--fundo)"><div style="font-size:10px;color:var(--texto-sec);margin-bottom:5px">'+l+'</div><strong style="font-size:14px">'+v+'</strong></div>').join('');
+  };
+  ['edit-nuv-preco-praticado','edit-nuv-custo','edit-nuv-custosadd','edit-nuv-frete','edit-nuv-extras','edit-nuv-margem','edit-nuv-taxas'].forEach(id=>document.getElementById(id)?.addEventListener('input',atualizarIndicadores));
+  atualizarIndicadores();
   document.getElementById('modal-editar-nuvemshop').style.display = 'flex';
   setTimeout(()=>document.getElementById('edit-nuv-nome')?.focus(),50);
 };
@@ -3267,7 +3242,7 @@ window.fecharEdicaoProdutoNuvemshop = function(){
 
 window.salvarEdicaoProdutoNuvemshop = async function(){
   if(produtoNuvemshopEmEdicaoId === null || produtoNuvemshopEmEdicaoId === undefined) return;
-  const p = pecas.find(item => String(item.id) === String(produtoNuvemshopEmEdicaoId) && item.origem === 'nuvemshop');
+  const p = pecas.find(item => String(item.id) === String(produtoNuvemshopEmEdicaoId));
   if(!p){ showToast('Não foi possível localizar esse produto.'); return; }
   const get = id => document.getElementById(id);
   const nome = (get('edit-nuv-nome')?.value||'').trim();
@@ -3321,6 +3296,7 @@ window.salvarEdicaoProdutoNuvemshop = async function(){
   p.nome = nome;
   if(sku) p.sku = sku; else delete p.sku;
   p.categoria = get('edit-nuv-categoria')?.value || p.categoria || 'Outros';
+  if(p.categoria === 'Conjuntos') p.categoria = 'Colares';
   p.infantil = !!get('edit-nuv-infantil')?.checked;
   p.publicadoNuvemshop = !!get('edit-nuv-publicado')?.checked;
   p.freteGratisNuvemshop = !!get('edit-nuv-frete-gratis')?.checked;
@@ -3337,6 +3313,7 @@ window.salvarEdicaoProdutoNuvemshop = async function(){
   p.extras = toNumber('edit-nuv-extras');
   p.margem = toNumber('edit-nuv-margem');
   p.taxasPercentual = toNumber('edit-nuv-taxas');
+  p.precoPraticado = toNumber('edit-nuv-preco-praticado') ?? p.precoPraticado ?? 0;
   p.variantesNuvemshop = variantesNovas;
   const precos = variantesNovas.map(v=>Number(v.precoFinal ?? v.preco)).filter(n=>Number.isFinite(n) && n >= 0);
   if(precos.length){

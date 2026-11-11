@@ -3220,7 +3220,7 @@ window.editarProdutoNuvemshop = function(id){
     +'</div>'
     +'<div style="border-top:1px solid var(--borda);margin-top:18px;padding-top:14px"><h4 style="font-size:14px;margin-bottom:6px">Precificação interna</h4><p style="font-size:11px;color:var(--texto-sec);margin-bottom:10px">Valores para calcular custo e preço sugerido. Não modificam o preço da loja automaticamente.</p>'
       +'<div class="form-grid" style="grid-template-columns:1fr 1fr">'
-        +'<div class="field"><label>Preço praticado (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-preco-praticado" value="'+escaparHtml(Number(p.precoPraticado || (Array.isArray(p.variantesNuvemshop)&&p.variantesNuvemshop.length ? Math.min(...p.variantesNuvemshop.map(v=>Number(v.precoFinal ?? v.preco)||0)) : 0).toFixed(2))+'"></div>'
+        +'<div class="field"><label>Preço praticado (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-preco-praticado" value="'+escaparHtml(Number(p.precoPraticado||0).toFixed(2))+'"></div>'
         +'<div class="field"><label>Custo do produto (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-custo" value="'+escaparHtml(Number(p.custoProduto||0).toFixed(2))+'"></div>'
         +'<div class="field"><label>Custos adicionais (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-custosadd" value="'+escaparHtml(Number(p.custosAdd||0).toFixed(2))+'"></div>'
         +'<div class="field"><label>Frete rateado (R$)</label><input type="number" min="0" step="0.01" id="edit-nuv-frete" value="'+escaparHtml(Number(p.frete||0).toFixed(2))+'"></div>'

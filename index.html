@@ -3156,7 +3156,7 @@ function renderProdutoNuvemshop(p){
         +'<div><strong>Variações:</strong> '+variantes.length+' · <strong>Fotos na loja:</strong> '+Number(p.quantidadeImagensNuvemshop||0)+'</div>'
         +(p.marcaNuvemshop?'<div><strong>Marca:</strong> '+escaparHtml(p.marcaNuvemshop)+'</div>':'')
       +'</div>'
-      +(()=>{const embalagensTotal=(p.embalagens||[]).reduce((s,e)=>s+(Number(e.unit)||0)*(Number(e.qtd)||0),0);const calc=calcularPrecificacao({custoProduto:p.custoProduto,custosAdd:p.custosAdd,frete:p.frete,extras:p.extras,margem:p.margem,taxasPercentual:p.taxasPercentual,embalagensTotal});const praticado=Number(p.precoPraticado||minimo||0);const lucro=praticado-calc.custoTotalComTaxas;const margemReal=praticado>0?lucro/praticado*100:0;const markup=calc.custoTotalComTaxas>0?lucro/calc.custoTotalComTaxas*100:0;return '<div class="peca-kpi-grid">'
+      +(()=>{const embalagensTotal=(p.embalagens||[]).reduce((s,e)=>s+(Number(e.unit)||0)*(Number(e.qtd)||0),0);const margemConfigurada=Number(p.margem||0);const margemExibida=margemConfigurada>0?margemConfigurada:110;const calc=calcularPrecificacao({custoProduto:p.custoProduto,custosAdd:p.custosAdd,frete:p.frete,extras:p.extras,margem:margemExibida,taxasPercentual:p.taxasPercentual,embalagensTotal});const praticado=Number(p.precoPraticado||minimo||0);const lucro=praticado-calc.custoTotalComTaxas;const margemReal=praticado>0?lucro/praticado*100:0;const markup=calc.custoTotalComTaxas>0?lucro/calc.custoTotalComTaxas*100:0;return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px"><label for="margem-produto-'+p.id+'" style="font-size:12px;color:var(--texto-sec)">Margem desejada (%)</label><input id="margem-produto-'+p.id+'" type="number" min="0" max="999" step="0.01" value="'+margemExibida.toFixed(2)+'" style="width:105px;padding:7px 9px;border:1px solid var(--borda);border-radius:7px"><button type="button" class="btn-outline" style="padding:7px 10px;font-size:12px" onclick="salvarMargemProduto('+p.id+')">Atualizar precificação</button></div><div class="peca-kpi-grid">'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custos antes das taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(calc.custoTotal)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Taxas estimadas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(calc.taxasValor)+'</div></div>'
         +'<div class="kpi-card" style="padding:10px 12px"><div class="kpi-label">Custo total com taxas</div><div style="font-size:15px;font-weight:600">'+fmtMoeda(calc.custoTotalComTaxas)+'</div></div>'
@@ -3174,6 +3174,23 @@ function renderProdutoNuvemshop(p){
     +'</div>'
   +'</div>';
 }
+
+window.salvarMargemProduto = async function(id){
+  const p=pecas.find(item=>String(item.id)===String(id));
+  const input=document.getElementById('margem-produto-'+id);
+  if(!p||!input)return;
+  const margem=Number(input.value);
+  if(!Number.isFinite(margem)||margem<0||margem>999){showToast('Informe uma margem entre 0% e 999%.');return;}
+  p.margem=margem;
+  const embalagensTotal=(p.embalagens||[]).reduce((t,e)=>t+(Number(e.unit)||0)*(Number(e.qtd)||0),0);
+  const calc=calcularPrecificacao({custoProduto:p.custoProduto,custosAdd:p.custosAdd,frete:p.frete,extras:p.extras,margem:p.margem,taxasPercentual:p.taxasPercentual,embalagensTotal});
+  p.precoSugerido=calc.precoSugerido;
+  p.custoTotalPrecificacao=calc.custoTotal;
+  p.precificacaoAtualizadaEm=new Date().toISOString();
+  p.alteracoesLocaisPendentes=true;
+  try{await window.storage.set('pecas_modelos',JSON.stringify(pecas));renderPecas();showToast('Margem e preço sugerido atualizados no painel.');}
+  catch(e){showToast('Não foi possível salvar a margem. Tente novamente.');}
+};
 
 let produtoNuvemshopEmEdicaoId = null;
 

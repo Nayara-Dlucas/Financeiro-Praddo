@@ -138,7 +138,7 @@
   <div class="auth-card">
     <div class="auth-logo" id="auth-title">Praddo <span>Painel</span></div>
     <div class="auth-subtitle">Controle financeiro e operacional da loja. Entre com o e-mail e a senha da conta autorizada.</div>
-    <form id="auth-form" onsubmit="entrarPainel(event)" autocomplete="on">
+    <form id="auth-form" autocomplete="on">
       <div class="auth-field">
         <label for="auth-email">E-mail</label>
         <input id="auth-email" name="email" type="email" autocomplete="username" required maxlength="254" placeholder="seu@email.com">
@@ -1383,6 +1383,25 @@ async function entrarPainel(event) {
     button.disabled = false;
     button.textContent = 'Entrar no painel';
   }
+}
+
+// Vinculação explícita dos eventos do login para evitar falha do manipulador inline.
+window.entrarPainel = entrarPainel;
+const authFormEl = document.getElementById('auth-form');
+const authButtonEl = document.getElementById('btn-entrar');
+if (authFormEl) {
+  authFormEl.addEventListener('submit', function(event) {
+    event.preventDefault();
+    entrarPainel(event);
+  });
+}
+if (authButtonEl) {
+  authButtonEl.addEventListener('click', function(event) {
+    event.preventDefault();
+    const form = document.getElementById('auth-form');
+    if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+    else entrarPainel(event);
+  });
 }
 
 async function sairPainel() {

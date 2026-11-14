@@ -716,6 +716,10 @@
           <input type="checkbox" id="pc-infantil" style="width:auto">
           <label for="pc-infantil" style="margin:0;font-size:13px;color:var(--texto)">Infantil</label>
         </div>
+        <div class="field" style="display:flex;align-items:center;gap:6px;padding-bottom:8px">
+          <input type="checkbox" id="pc-semijoia" style="width:auto">
+          <label for="pc-semijoia" style="margin:0;font-size:13px;color:var(--texto)">Semijoia</label>
+        </div>
       </div>
 
       <div class="form-grid" style="grid-template-columns:1fr 1fr">
@@ -1376,11 +1380,12 @@ function extrairPalavraModelo(nome){
   return resultado || 'MODELO';
 }
 
-function gerarSKU(nome, categoria, infantil){
+function gerarSKU(nome, categoria, infantil, semijoia){
   const sigla = SIGLAS_CATEGORIA[categoria] || 'OUT';
   const infijo = infantil ? 'INF-' : '';
   const modeloKw = extrairPalavraModelo(nome);
-  const prefixoGrupo = '^' + sigla + '-' + (infantil ? 'INF-' : '(?!INF-)') + '.*-([0-9]{3,})$';
+  // A sequência é compartilhada entre prata e semijoia na mesma categoria/faixa infantil.
+  const prefixoGrupo = '^(?:SMJ-)?' + sigla + '-' + (infantil ? 'INF-' : '(?!INF-)') + '.*-([0-9]{3,})$';
   const regexGrupo = new RegExp(prefixoGrupo);
   let maiorNumero = 0;
   pecas.forEach(p=>{
@@ -1392,7 +1397,7 @@ function gerarSKU(nome, categoria, infantil){
   let sku = '';
   do {
     const sequencia = String(numero).padStart(3,'0');
-    sku = sigla + '-' + infijo + modeloKw + '-' + sequencia;
+    sku = (semijoia ? 'SMJ-' : '') + sigla + '-' + infijo + modeloKw + '-' + sequencia;
     numero++;
   } while(pecas.some(p=>String(p.sku || '').trim().toUpperCase() === sku.toUpperCase()));
   return sku;
@@ -3165,6 +3170,7 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
   const nome = document.getElementById('pc-nome').value.trim();
   const categoria = document.getElementById('pc-categoria').value;
   const infantil = document.getElementById('pc-infantil').checked;
+  const semijoia = document.getElementById('pc-semijoia').checked;
   const skuDigitado = (document.getElementById('pc-sku').value || '').trim();
   const tamanho = document.getElementById('pc-tamanho').value.trim();
   const custoProduto = getMoedaValue(document.getElementById('pc-custoproduto'));
@@ -3189,7 +3195,7 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
   }
   err.style.display = 'none';
 
-  const sku = skuDigitado || gerarSKU(nome, categoria, infantil);
+  const sku = skuDigitado || gerarSKU(nome, categoria, infantil, semijoia);
   if(pecas.some(item => String(item.id) !== String(editandoPecaId ?? '') && String(item.sku || '').trim().toLowerCase() === sku.toLowerCase())){
     err.textContent = 'Esse SKU já está sendo usado por outro produto no painel.';
     err.style.display = 'block';
@@ -3205,7 +3211,7 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
     const praticadoInput = getMoedaValue(document.getElementById('pc-praticado'));
     const precoPraticado = praticadoInput>0 ? praticadoInput : (p.precificacaoPendente ? 0 : r.precoSugerido);
     Object.assign(p, {
-      sku, nome, categoria, infantil, tamanho, custoProduto, custosAdd, frete, extras, margem, taxasPercentual,
+      sku, nome, categoria, infantil, semijoia, tamanho, custoProduto, custosAdd, frete, extras, margem, taxasPercentual,
       embalagens: selecionados, precoSugerido: r.precoSugerido, precoPraticado,
       precificacaoPendente: p.precificacaoPendente ? !(praticadoInput>0) : false
     });
@@ -3218,7 +3224,7 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
     const praticadoInput = getMoedaValue(document.getElementById('pc-praticado'));
     const precoPraticado = praticadoInput>0 ? praticadoInput : r.precoSugerido;
     pecas.push({
-      id: Date.now(), sku, nome, categoria, infantil, tamanho,
+      id: Date.now(), sku, nome, categoria, infantil, semijoia, tamanho,
       custoProduto, custosAdd, frete, extras, margem, taxasPercentual: taxasMarcadas,
       embalagens: selecionados,
       precoSugerido: r.precoSugerido,
@@ -3243,6 +3249,7 @@ document.getElementById('btn-add-peca')?.addEventListener('click', ()=>{
   document.getElementById('pc-praticado').placeholder='Deixe em branco pra usar o sugerido';
   document.getElementById('pc-tamanho').value='';
   document.getElementById('pc-infantil').checked=false;
+  document.getElementById('pc-semijoia').checked=false;
   document.querySelectorAll('.pc-embal-check').forEach(chk=>{
     chk.checked = true;
     const qtd = chk.closest('div').querySelector('.pc-embal-qtd');
@@ -3425,6 +3432,7 @@ window.editarProdutoNuvemshop = function(id){
     +'</div>'
     +'<div class="form-grid" style="grid-template-columns:1fr 1fr;margin:10px 0">'
       +'<div class="field"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto)"><input type="checkbox" id="edit-nuv-infantil" style="width:auto"'+(p.infantil?' checked':'')+'> Produto infantil</label></div>'
+      +'<div class="field"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto)"><input type="checkbox" id="edit-nuv-semijoia" style="width:auto"'+(p.semijoia || String(p.sku||'').toUpperCase().startsWith('SMJ-')?' checked':'')+'> Semijoia</label></div>'
       +'<div class="field"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto)"><input type="checkbox" id="edit-nuv-publicado" style="width:auto"'+(p.publicadoNuvemshop?' checked':'')+'> Publicado (referência local)</label></div>'
       +'<div class="field"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto)"><input type="checkbox" id="edit-nuv-frete-gratis" style="width:auto"'+(p.freteGratisNuvemshop?' checked':'')+'> Frete grátis (referência local)</label></div>'
     +'</div>'
@@ -3533,6 +3541,7 @@ window.salvarEdicaoProdutoNuvemshop = async function(){
   p.categoria = get('edit-nuv-categoria')?.value || p.categoria || 'Outros';
   if(p.categoria === 'Conjuntos') p.categoria = 'Colares';
   p.infantil = !!get('edit-nuv-infantil')?.checked;
+  p.semijoia = !!get('edit-nuv-semijoia')?.checked;
   p.publicadoNuvemshop = !!get('edit-nuv-publicado')?.checked;
   p.freteGratisNuvemshop = !!get('edit-nuv-frete-gratis')?.checked;
   p.tamanho = (get('edit-nuv-tamanho')?.value||'').trim();

@@ -3560,6 +3560,12 @@ window.salvarEdicaoProdutoNuvemshop = async function(){
   p.margem = toNumber('edit-nuv-margem');
   p.taxasPercentual = toNumber('edit-nuv-taxas');
   p.precoPraticado = toNumber('edit-nuv-preco-praticado') ?? p.precoPraticado ?? 0;
+  // Conclui a precificação pendente quando os campos essenciais foram preenchidos.
+  // A edição pelo catálogo também deve atualizar o status, não apenas os valores.
+  if(p.precificacaoPendente === true){
+    p.precificacaoPendente = !(p.custoProduto > 0 && p.margem > 0 && p.precoPraticado > 0);
+    if(!p.precificacaoPendente) p.precificacaoConcluidaEm = new Date().toISOString();
+  }
   p.variantesNuvemshop = variantesNovas;
   const precos = variantesNovas.map(v=>Number(v.precoFinal ?? v.preco)).filter(n=>Number.isFinite(n) && n >= 0);
   if(precos.length){
